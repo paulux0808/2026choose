@@ -2,391 +2,368 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>📱 학생 선택과목 대시보드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 학생 선택과목 종합 대시보드</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
         :root {
-            --primary: #3b82f6;
-            --secondary: #7c3aed;
             --bg: #f8fafc;
             --surface: #ffffff;
-            --text: #0f172a;
+            --surface-hover: #f1f5f9;
+            --text-main: #0f172a;
             --text-muted: #64748b;
             --border: #e2e8f0;
-            --accent-bg: #eff6ff;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --live: #10b981;
+            --violet: #7c3aed;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text-main); overflow-y: scroll; }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); overflow-x: hidden; line-height: 1.5; }
+        .header-wrapper { position: sticky; top: 0; background: rgba(248,250,252,0.9); backdrop-filter: blur(10px); z-index: 100; border-bottom: 1px solid var(--border); padding: 15px 20px; }
+        .header { max-width: 1500px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .header h1 { font-size: 24px; font-weight: 900; background: linear-gradient(135deg,#2563eb,#7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display:flex; align-items:center; gap:8px; }
+        .header h1 .icon { -webkit-text-fill-color: initial; }
 
-        /* 로딩 화면 */
-        #loader { position: fixed; inset: 0; background: #fff; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .controls { display: flex; gap: 4px; background: var(--surface); padding: 6px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); flex-wrap: wrap; align-items: center; }
+        .btn { background: transparent; color: var(--text-muted); border: none; padding: 10px 14px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; white-space: nowrap; font-family: inherit; }
+        .btn:hover { background: var(--surface-hover); color: var(--text-main); }
+        .btn.active { background: var(--accent); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); }
 
-        /* 헤더 */
-        header { 
-            position: sticky; top: 0; background: rgba(255,255,255,0.8); 
-            backdrop-filter: blur(10px); z-index: 100; padding: 15px 20px;
-            border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
-        }
-        header h1 { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .container { max-width: 1500px; margin: 0 auto; padding: 40px 20px; }
 
-        /* 검색 영역 */
-        .search-container { padding: 15px; background: var(--surface); border-bottom: 1px solid var(--border); }
-        .search-box { position: relative; }
-        .search-input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 12px; border: 2px solid var(--border); font-size: 15px; font-family: inherit; font-weight: 600; outline: none; transition: all 0.2s; }
-        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-wrapper { position: relative; width: 100%; max-width: 600px; margin: 0 auto 30px auto; }
+        .search-input { width: 100%; padding: 16px 20px 16px 45px; border-radius: 14px; border: 2px solid var(--border); font-size: 16px; font-family: 'Pretendard'; font-weight: 700; outline: none; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.02); background: var(--surface); color: var(--text-main); }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
+        .search-input::placeholder { color: #94a3b8; }
+        .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 20px; color: var(--text-muted); }
 
-        /* 자동완성 */
-        .ac-list { position: absolute; top: calc(100% + 5px); left: 0; right: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 1000; max-height: 250px; overflow-y: auto; display: none; border: 1px solid var(--border); }
-        .ac-item { padding: 12px 15px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; cursor: pointer; }
-        .ac-item:active { background: var(--accent-bg); }
-        .ac-item:last-child { border-bottom: none; }
+        .autocomplete-list { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; max-height: 300px; overflow-y: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.12); z-index: 50; display: none; }
+        .autocomplete-item { padding: 14px 20px; cursor: pointer; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 15px; transition: 0.1s; display: flex; align-items: center; justify-content: space-between; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover { background: #eff6ff; color: var(--accent); }
 
-        /* 메인 콘텐츠 */
-        main { padding: 15px; padding-bottom: 100px; min-height: 80vh; }
+        .grid-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; transition: 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.08); border-color: #cbd5e1; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .card-title { font-size: 20px; font-weight: 800; color: var(--text-main); }
+        .badge { font-size: 13px; padding: 5px 10px; border-radius: 20px; background: #f1f5f9; color: #475569; font-weight: 800; border: 1px solid #e2e8f0; display: inline-block; }
 
-        /* 카드 UI */
-        .card { background: var(--surface); border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .card-label { font-size: 11px; font-weight: 800; color: var(--primary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .card-title { font-size: 17px; font-weight: 800; margin-bottom: 10px; color: var(--text); }
-        .card-info { background: var(--bg); border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
-        .card-info b { color: var(--text); }
-        .card-info div { margin-bottom: 4px; }
-        .card-info div:last-child { margin-bottom: 0; }
+        .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .data-table th, .data-table td { border: 1px solid var(--border); padding: 12px; text-align: center; }
+        .data-table th { background: #f8fafc; font-weight: 800; color: var(--text-main); }
+        .data-table td { font-weight: 700; font-size: 14px; }
+        .date-input { width: 100%; border: none; border-bottom: 2px solid transparent; background: transparent; text-align: center; font-family: 'Pretendard'; font-weight: 800; color: var(--text-main); font-size: 14px; padding: 4px; outline: none; transition: 0.2s; }
+        .date-input:focus { border-color: var(--accent); }
 
-        /* 배지 */
-        .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; background: #f1f5f9; color: #475569; margin: 2px; }
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.3s; }
+        .spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid var(--border); border-top-color: var(--accent); animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* 하단 네비게이션 */
-        nav { 
-            position: fixed; bottom: 0; left: 0; right: 0; background: #fff; 
-            border-top: 1px solid var(--border); display: flex; height: 65px; 
-            padding-bottom: env(safe-area-inset-bottom); z-index: 1000;
-        }
-        .nav-btn { flex: 1; border: none; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); font-size: 10px; font-weight: 700; cursor: pointer; }
-        .nav-btn.active { color: var(--primary); }
-        .nav-btn span { font-size: 20px; }
-
-        /* 선택박스 및 명렬 리스트 */
-        .select-full { width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--border); font-weight: 700; margin-bottom: 15px; background: #fff; font-size: 15px; appearance: none; }
-        .roster-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-        .roster-list-item:last-child { border-bottom: none; }
-
+        /* ========================================================
+           인쇄 전용 스타일 (A4 가로, 표 압축, 잘림 현상 완벽 해결) 
+           ======================================================== */
         @media print {
-            .no-print { display: none !important; }
-            main { padding: 0; margin: 0; }
-            header, nav, .search-container { display: none; }
-            .card { border: 1px solid #000; box-shadow: none; border-radius: 0; }
+            body { background: white; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .header-wrapper, .controls, .search-wrapper, .no-print { display: none !important; }
+            .container { padding: 0 !important; margin: 0 !important; max-width: 100%; }
+            .card { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; background: transparent !important; }
+            
+            /* A4 가로 설정 및 여백 극한으로 줄이기 (한 장 맞춤용) */
+            @page { size: A4 landscape; margin: 8mm; } 
+            
+            /* 표 모서리 둥글게 잘리는 현상 (border-radius) 완전 제거 */
+            .data-table { 
+                border-radius: 0 !important; 
+                overflow: visible !important; 
+                table-layout: fixed; 
+                width: 100%; 
+                border-collapse: collapse !important; 
+            }
+            
+            /* 인원이 많아도 한 장에 들어가도록 셀 위아래 높이(padding)를 대폭 압축 */
+            .data-table th, .data-table td { 
+                border: 1px solid #000 !important; 
+                padding: 4px 2px !important; /* 상하 여백 최소화 */
+                font-size: 10.5pt !important; /* 폰트 약간 축소 */
+                line-height: 1.1 !important; /* 줄 간격 축소 */
+                color: #000 !important;
+                height: 22px !important; /* 강제 높이 지정으로 부피 최소화 */
+            }
+            .data-table th { background-color: #f0f0f0 !important; }
+            
+            /* 날짜 입력칸(placeholder) 인쇄 시에도 보이도록 투명화(transparent) 제거 */
+            .date-input { border: none !important; font-size: 10pt !important; color: black !important; text-align: center; width: 100%; padding: 0; height: auto !important; }
+            .date-input::placeholder { color: #000 !important; }
+            
+            /* 상단 여백 및 제목 크기 줄이기 (줄바꿈 방지) */
+            .print-header { margin-bottom: 5px !important; padding-top: 0 !important; }
+            .print-header h2 { font-size: 17pt !important; margin-bottom: 4px !important; margin-top: 0 !important; }
+            .print-header div { font-size: 12pt !important; margin-bottom: 5px !important; }
         }
     </style>
 </head>
 <body>
 
-<div id="loader">
+<div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
-    <p style="margin-top:15px; font-weight:700; color:var(--text-muted);">데이터 동기화 중...</p>
+    <div style="font-weight:900; font-size:20px; color:var(--text-main)" id="loadingMsg">스프레드시트에서 데이터를 불러오는 중...</div>
 </div>
 
-<header>
-    <h1>학생 선택과목</h1>
-    <button class="no-print" style="background:var(--accent-bg); border:none; padding:8px 14px; border-radius:8px; font-weight:700; font-size:12px; color:var(--primary);" onclick="location.reload()">새로고침</button>
-</header>
-
-<div id="searchArea" class="search-container no-print">
-    <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" placeholder="이름 또는 학번 입력" autocomplete="off" oninput="handleSearch(this.value)">
-        <div id="acList" class="ac-list"></div>
+<div class="header-wrapper no-print">
+    <div class="header">
+        <h1><span class="icon">📋</span> 학생 선택과목 대시보드</h1>
+        <div class="controls">
+            <button class="btn active" id="btn_student" onclick="switchTab('student')">👨‍🎓 학생 조회</button>
+            <button class="btn" id="btn_roster" onclick="switchTab('roster')">📝 과목별 명렬표</button>
+            <button class="btn" id="btn_location" onclick="switchTab('location')">🏫 수업 장소</button>
+        </div>
     </div>
 </div>
 
-<main id="content"></main>
-
-<nav class="no-print">
-    <button class="nav-btn active" onclick="switchTab('student', this)"><span>👨‍🎓</span>조회</button>
-    <button class="nav-btn" onclick="switchTab('roster', this)"><span>📝</span>명렬</button>
-    <button class="nav-btn" onclick="switchTab('location', this)"><span>📍</span>장소</button>
-    <button class="nav-btn" onclick="switchTab('classprint', this)"><span>🖨️</span>학급</button>
-</nav>
+<div class="container" id="mainContainer"></div>
 
 <script>
-    const SHEET_ID = '1ZwOdHmsFGbCNTDJtUvLk5ExLxgLCAXyTVglkULv99lQ';
-    let allStudents = [], classroomData = [], dataCount = 0;
-    const TOTAL_SHEETS = 4;
+const SHEET_ID = '1ZwOdHmsFGbCNTDJtUvLk5ExLxgLCAXyTVglkULv99lQ';
+let allStudents = [];
+let classroomData = [];
+let dataLoaded = 0;
+const TOTAL = 4;
 
-    /* 데이터 파싱: 학생 정보 */
-    function parseStudent(data, grade) {
-        if(!data.table) return;
-        const headers = data.table.cols.map(c => (c.label || '').trim());
-        data.table.rows.forEach(row => {
-            const id = (row.c[0]?.f || row.c[0]?.v || '').toString().trim();
-            const name = (row.c[1]?.v || '').toString().trim();
-            if(!id || !name) return;
-            
-            let subjects = {};
-            row.c.forEach((cell, i) => {
-                if(i > 1 && cell?.v) {
-                    const headerName = headers[i];
-                    subjects[headerName] = cell.v.toString().trim();
-                }
-            });
-            allStudents.push({ 
-                id, name, grade, 
-                homeroom: `${id.substring(0,1)}학년 ${parseInt(id.substring(1,3))}반`, 
-                subjects 
-            });
-        });
-    }
+function parseStudentSheet(data, gradeStr) {
+    if (!data?.table) return;
+    const cols = data.table.cols || [];
+    const rows = data.table.rows || [];
+    const headers = cols.map(c => (c.label || '').trim());
 
-    /* 데이터 파싱: 강의실 정보 */
-    function parseClassroom(data, grade) {
-        if(!data.table) return;
-        const cols = data.table.cols;
-        const rows = data.table.rows;
-        let subjectsHeaders = [];
-        for(let j=2; j<cols.length; j++) if(cols[j].label) subjectsHeaders[j] = cols[j].label.trim();
+    let idIdx = headers.findIndex(h => h.includes('학번'));
+    let nameIdx = headers.findIndex(h => h.includes('이름') || h.includes('성명'));
+    if (idIdx === -1) idIdx = 0;
+    if (nameIdx === -1) nameIdx = 1;
 
-        let curSlot = '';
-        rows.forEach(r => {
-            const colA = (r.c[0]?.v || '').toString().trim();
-            const colB = (r.c[1]?.v || '').toString().trim();
-            
-            if(colB === '학생수' && colA) curSlot = colA;
-            if(!curSlot) return;
-            
-            for(let j=2; j<r.c.length; j++) {
-                const val = (r.c[j]?.f || r.c[j]?.v || '').toString().trim();
-                const subjName = subjectsHeaders[j];
-                if(!subjName) continue;
-                
-                let entry = classroomData.find(x => x.grade === grade && x.slot === curSlot && x.subject === subjName);
-                if(!entry) {
-                    entry = { grade, slot: curSlot, subject: subjName, teacher:'', room:'', count:0 };
-                    classroomData.push(entry);
-                }
-                if(colB === '학생수') entry.count = val;
-                if(colB === '담당교사') entry.teacher = val;
-                if(colB === '교실') entry.room = val;
+    const subjectCols = [];
+    headers.forEach((h, j) => {
+        if (j === idIdx || j === nameIdx || !h) return;
+        subjectCols.push({ idx: j, name: h });
+    });
+
+    for (const row of rows) {
+        if (!row.c) continue;
+        const idCell = row.c[idIdx];
+        const nameCell = row.c[nameIdx];
+        const id = idCell ? String(idCell.f || idCell.v || '').trim() : '';
+        const name = nameCell ? String(nameCell.v || '').trim() : '';
+        if (!id || !name) continue;
+
+        let homeroom = '미정';
+        const m = id.match(/^(\d)(\d{2})(\d{2})$/);
+        if (m) homeroom = `${m[1]}학년 ${parseInt(m[2])}반`;
+
+        const subjects = {};
+        for (const sc of subjectCols) {
+            const cell = row.c[sc.idx];
+            if (!cell || cell.v === null || cell.v === undefined) continue;
+            const val = String(cell.v).trim();
+            if (val && val !== '-' && val !== '0') {
+                subjects[sc.name] = val;
             }
-        });
-    }
-
-    /* Google Sheets JSONP 콜백 */
-    window.cb_g2_stu = d => { parseStudent(d, '2학년'); checkReady(); };
-    window.cb_g3_stu = d => { parseStudent(d, '3학년'); checkReady(); };
-    window.cb_g2_cls = d => { parseClassroom(d, '2학년'); checkReady(); };
-    window.cb_g3_cls = d => { parseClassroom(d, '3학년'); checkReady(); };
-
-    function checkReady() {
-        if(++dataCount >= TOTAL_SHEETS) {
-            document.getElementById('loader').style.display = 'none';
-            switchTab('student', document.querySelector('.nav-btn'));
+        }
+        if (Object.keys(subjects).length > 0) {
+            allStudents.push({ id, name, grade: gradeStr, homeroom, subjects });
         }
     }
+}
 
-    /* 초기 실행 */
-    (function init() {
-        const endpoints = [
-            { gid: '0', cb: 'cb_g2_stu' }, { gid: '1935968761', cb: 'cb_g3_stu' },
-            { gid: '606989081', cb: 'cb_g2_cls' }, { gid: '44867740', cb: 'cb_g3_cls' }
-        ];
-        endpoints.forEach(e => {
-            const s = document.createElement('script');
-            s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${e.cb}&gid=${e.gid}${e.cb.includes('stu')?'&headers=1':''}`;
-            document.body.appendChild(s);
-        });
-    })();
+function parseClassroomSheet(data, gradeStr) {
+    if (!data?.table) return;
+    const cols = data.table.cols || [];
+    const rows = data.table.rows || [];
 
-    /* 탭 전환 */
-    let currentTab = 'student';
-    function switchTab(tab, btn) {
-        currentTab = tab;
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('searchArea').style.display = (tab === 'student' || tab === 'location') ? 'block' : 'none';
-        document.getElementById('searchInput').value = '';
-        render();
+    const subjectMap = {};
+    for (let j = 2; j < cols.length; j++) {
+        const label = (cols[j].label || '').trim();
+        if (label) subjectMap[j] = label;
     }
 
-    function render() {
-        const container = document.getElementById('content');
-        container.innerHTML = '';
-        if(currentTab === 'student') container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#94a3b8; font-weight:700;">학생 이름 또는 학번을 입력하여<br>수업 장소를 확인하세요.</div>';
-        if(currentTab === 'roster') renderRoster(container);
-        if(currentTab === 'location') container.innerHTML = '<div style="text-align:center; padding:60px 20px; color:#94a3b8; font-weight:700;">담당 교사명, 과목명 또는<br>교실 이름을 검색하세요.</div>';
-        if(currentTab === 'classprint') renderClassPrint(container);
-    }
+    let currentSlot = '';
 
-    /* 검색 엔진 */
-    function handleSearch(val) {
-        val = val.trim().toLowerCase();
-        const ac = document.getElementById('acList');
-        if(!val) { ac.style.display = 'none'; return; }
+    for (const row of rows) {
+        if (!row.c) continue;
+        const getVal = (idx) => {
+            const cell = row.c[idx];
+            if (!cell || cell.v === null || cell.v === undefined) return '';
+            return String(cell.f || cell.v).trim();
+        };
 
-        if(currentTab === 'student') {
-            const matches = allStudents.filter(s => s.name.includes(val) || s.id.includes(val)).slice(0, 10);
-            ac.innerHTML = matches.map(m => `<div class="ac-item" onclick="selectStudent('${m.id}')"><b>${m.name}</b> (${m.id}) <small style="color:#94a3b8; margin-left:5px;">${m.homeroom}</small></div>`).join('');
-            ac.style.display = matches.length ? 'block' : 'none';
-        } else if(currentTab === 'location') {
-            doLocationSearch(val);
+        const colA = getVal(0);
+        const colB = getVal(1);
+
+        if (colB === '학생수' && colA) {
+            currentSlot = colA;
+            for (let j = 2; j < row.c.length; j++) {
+                const cnt = parseInt(getVal(j));
+                const subj = subjectMap[j];
+                if (!isNaN(cnt) && cnt > 0 && subj) {
+                    classroomData.push({ grade: gradeStr, slot: currentSlot, subject: subj, teacher: '', room: '', count: cnt });
+                }
+            }
+            continue;
+        }
+
+        if (colB === '담당교사' && currentSlot) {
+            for (let j = 2; j < row.c.length; j++) {
+                const teacher = getVal(j);
+                const subj = subjectMap[j];
+                if (teacher && subj) {
+                    const e = classroomData.find(x => x.grade === gradeStr && x.slot === currentSlot && x.subject === subj);
+                    if (e) e.teacher = teacher;
+                }
+            }
+            continue;
+        }
+
+        if (colB === '교실' && currentSlot) {
+            for (let j = 2; j < row.c.length; j++) {
+                const room = getVal(j);
+                const subj = subjectMap[j];
+                if (room && subj) {
+                    const e = classroomData.find(x => x.grade === gradeStr && x.slot === currentSlot && x.subject === subj);
+                    if (e) e.room = room;
+                }
+            }
+            continue;
         }
     }
+}
 
-    /* 학생 개별 결과 표시 */
-    function selectStudent(id) {
-        const s = allStudents.find(x => x.id === id);
-        if(!s) return;
-        document.getElementById('acList').style.display = 'none';
-        document.getElementById('searchInput').value = s.name;
-        
-        const container = document.getElementById('content');
-        let html = `<div style="margin: 10px 0 20px 5px;">
-            <div style="font-size:24px; font-weight:900; letter-spacing:-0.5px;">${s.name}</div>
-            <div style="color:var(--text-muted); font-weight:700; font-size:15px;">${s.homeroom} · ${s.id}</div>
-        </div>`;
-        
-        Object.entries(s.subjects).forEach(([key, value]) => {
-            const cls = classroomData.find(c => 
-                c.grade === s.grade && 
-                ((c.slot === value && c.subject === key) || (c.slot === key && c.subject === value))
-            );
-            
-            if(!cls) return;
+window.cb_g2_stu = function(d) { try { parseStudentSheet(d, '2학년'); } catch(e) { console.error(e); } checkReady(); };
+window.cb_g3_stu = function(d) { try { parseStudentSheet(d, '3학년'); } catch(e) { console.error(e); } checkReady(); };
+window.cb_g2_cls = function(d) { try { parseClassroomSheet(d, '2학년'); } catch(e) { console.error(e); } checkReady(); };
+window.cb_g3_cls = function(d) { try { parseClassroomSheet(d, '3학년'); } catch(e) { console.error(e); } checkReady(); };
 
-            html += `
-            <div class="card">
-                <div class="card-label">SLOT ${cls.slot}</div>
-                <div class="card-title">${cls.subject}</div>
-                <div class="card-info">
-                    <div>🧑‍🏫 담당교사: <b>${cls.teacher || '미정'}</b></div>
-                    <div style="color:var(--primary); font-size:15px; margin-top:6px;">📍 수업장소: <b>${cls.room || '정보 없음'}</b></div>
-                </div>
-            </div>`;
-        });
-        container.innerHTML = html;
+function checkReady() {
+    dataLoaded++;
+    if (dataLoaded >= TOTAL) {
+        clearTimeout(errorTimeout);
+        document.getElementById('loadingOverlay').style.opacity = '0';
+        setTimeout(() => document.getElementById('loadingOverlay').style.display = 'none', 300);
+        allStudents.sort((a, b) => a.id.localeCompare(b.id));
+        console.log(`✅ 학생 ${allStudents.length}명, 강좌 ${classroomData.length}건`);
+        switchTab('student');
     }
+}
 
-    /* 교사/장소 검색 */
-    function doLocationSearch(q) {
-        document.getElementById('acList').style.display = 'none';
-        const container = document.getElementById('content');
-        const results = classroomData.filter(c => 
-            c.subject.toLowerCase().includes(q) || 
-            c.teacher.toLowerCase().includes(q) || 
-            c.room.toLowerCase().includes(q)
-        );
-
-        if(!results.length) { container.innerHTML = '<div style="text-align:center; padding:40px;">결과가 없습니다.</div>'; return; }
-        
-        container.innerHTML = results.map(r => `
-            <div class="card">
-                <div class="card-label">${r.grade} · SLOT ${r.slot}</div>
-                <div class="card-title">${r.subject}</div>
-                <div class="card-info">
-                    <div>🧑‍🏫 담당: <b>${r.teacher}</b></div>
-                    <div>📍 장소: <b style="color:var(--secondary)">${r.room}</b></div>
-                    <div style="font-size:12px; color:#94a3b8; margin-top:5px;">👥 수강 인원: ${r.count}명</div>
-                </div>
-            </div>
-        `).join('');
+let errorTimeout = setTimeout(() => {
+    if (dataLoaded < TOTAL) {
+        document.getElementById('loadingMsg').innerHTML = `<span style="color:#ef4444;">데이터 불러오기 실패</span><br><br><span style="font-size:16px; font-weight:600; color:var(--text-muted);">시트 권한을 확인하거나 새로고침 해주세요.</span>`;
     }
+}, 10000);
 
-    /* 명렬표 로직: 담당 교사가 있는 강좌만 필터링 */
-    function renderRoster(container) {
-        const options = classroomData
-            .filter(c => c.teacher && c.teacher.trim() !== "" && c.teacher !== "0") // 교사 정보가 있는 것만
-            .map(c => ({ 
-                display: `[${c.grade}] ${c.slot} - ${c.subject} (${c.teacher})`,
-                grade: c.grade, slot: c.slot, subject: c.subject
-            }))
-            .sort((a,b) => a.display.localeCompare(b.display));
+(function fetchAllData() {
+    [
+        { gid: '0',          cb: 'cb_g2_stu', hdr: true },
+        { gid: '1935968761', cb: 'cb_g3_stu', hdr: true },
+        { gid: '606989081',  cb: 'cb_g2_cls', hdr: false },
+        { gid: '44867740',   cb: 'cb_g3_cls', hdr: false },
+    ].forEach(ep => {
+        const s = document.createElement('script');
+        s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${ep.cb}&gid=${ep.gid}${ep.hdr ? '&headers=1' : ''}&_=${Date.now()}`;
+        document.body.appendChild(s);
+    });
+})();
 
-        container.innerHTML = `
-            <div style="position:relative;">
-                <select id="rosterSel" class="select-full" onchange="showRoster(this)">
-                    <option value="">강좌를 선택하세요 (${options.length}개)</option>
-                    ${options.map(o => `<option value='${JSON.stringify(o)}'>${o.display}</option>`).join('')}
-                </select>
-                <div style="position:absolute; right:15px; top:18px; pointer-events:none; color:var(--text-muted);">▼</div>
-            </div>
-            <div id="rosterResult"></div>
-        `;
-    }
+function switchTab(tabId) {
+    document.querySelectorAll('.controls .btn').forEach(b => { b.classList.remove('active'); });
+    const btn = document.getElementById('btn_' + tabId);
+    if (btn) { btn.classList.add('active'); }
+    const mc = document.getElementById('mainContainer');
+    mc.innerHTML = '';
+    ({student: renderStudentTab, roster: renderRosterTab, location: renderLocationTab})[tabId]?.(mc);
+}
 
-    window.showRoster = (el) => {
-        if(!el.value) return;
-        const config = JSON.parse(el.value);
-        const { grade, slot, subject } = config;
+function findClassroom(grade, slot, subject) { return classroomData.find(c => c.grade === grade && c.slot === slot && c.subject === subject); }
+const SC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#3b82f6","F":"#ef4444","G":"#f97316","H":"#8b5cf6","I":"#06b6d4","J":"#14b8a6","K":"#a855f7","L":"#ec4899","M":"#6366f1","N":"#0ea5e9"};
+function slotColor(s) { return SC[s] || SC[s.charAt(0)] || 'var(--accent)'; }
 
-        const sts = allStudents.filter(s => {
-            if(s.grade !== grade) return false;
-            return (s.subjects[subject] === slot || s.subjects[slot] === subject);
-        }).sort((a,b) => a.id.localeCompare(b.id));
+function renderStudentTab(c) {
+    c.innerHTML = `<div style="text-align:center; margin-bottom:30px;"><h2 style="font-weight:900; margin-bottom:15px; font-size:28px;">👨‍🎓 학생 선택과목 조회</h2><div class="search-wrapper no-print"><span class="search-icon">🔎</span><input type="text" id="searchStudent" class="search-input" placeholder="이름 또는 학번을 입력하세요..." autocomplete="off" oninput="handleStudentSearch(this.value)"><div id="studentDropdown" class="autocomplete-list"></div></div></div><div id="studentResult"><div style="text-align:center; color:var(--text-muted); padding:40px; font-weight:700;">검색창에 학생 학번이나 이름을 입력해 주세요.</div></div>`;
+    document.addEventListener('click', e => { const dd = document.getElementById('studentDropdown'); if (dd && e.target.id !== 'searchStudent') dd.style.display = 'none'; });
+}
+window.handleStudentSearch = function(val) {
+    val = val.trim().toLowerCase(); const dd = document.getElementById('studentDropdown');
+    if (!val) { dd.style.display = 'none'; return; }
+    const ms = allStudents.filter(s => s.name.toLowerCase().includes(val) || s.id.includes(val)).slice(0, 20);
+    dd.innerHTML = ms.length ? ms.map(m => `<div class="autocomplete-item" onclick="selectStudent('${m.id}')"><div><span class="badge" style="margin-right:8px;font-size:12px;background:#eff6ff;border-color:#bfdbfe;color:#2563eb;">${m.id}</span>${m.name}</div><span style="font-size:12px;color:var(--text-muted);">${m.homeroom}</span></div>`).join('') : `<div class="autocomplete-item" style="color:var(--text-muted);cursor:default;">일치하는 학생 없음</div>`;
+    dd.style.display = 'block';
+};
+window.selectStudent = function(id) {
+    const s = allStudents.find(x => x.id === id); if (!s) return;
+    document.getElementById('searchStudent').value = `${s.name} (${s.id})`;
+    document.getElementById('studentDropdown').style.display = 'none';
+    const pairs = Object.entries(s.subjects).map(([subj, slot]) => { const ci = findClassroom(s.grade, slot, subj); return { subj, slot, teacher: ci?.teacher || '미정', room: ci?.room || '미정' }; }).sort((a,b) => a.slot.localeCompare(b.slot));
+    let h = `<div style="display:flex;align-items:center;gap:16px;margin-bottom:25px;padding:20px 24px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border-radius:16px;"><div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:white;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;">${s.name.charAt(0)}</div><div><div style="font-size:24px;font-weight:900;">${s.name}</div><div style="font-size:14px;color:var(--text-muted);font-weight:600;margin-top:4px;">${s.homeroom} · 학번 ${s.id} · 수강과목 ${pairs.length}개</div></div></div><div class="grid-layout">`;
+    if (!pairs.length) h += `<div style="grid-column:1/-1;color:var(--text-muted);font-weight:800;text-align:center;padding:30px;">선택과목 데이터가 없습니다.</div>`;
+    pairs.forEach(p => { const c = slotColor(p.slot); h += `<div class="card" style="border-left:5px solid ${c};padding:20px;"><div class="card-header"><span class="badge" style="background:${c}15;color:${c};border-color:${c}40;">📌 슬롯 ${p.slot}</span></div><div class="card-title" style="margin-bottom:15px;font-size:20px;">${p.subj}</div><div style="background:var(--surface-hover);padding:12px;border-radius:10px;font-weight:700;font-size:14px;"><div style="margin-bottom:6px;">🧑‍🏫 지도교사: <span style="color:var(--text-muted)">${p.teacher}</span></div><div>📍 수업장소: <strong style="color:${c};font-size:15px;">${p.room}</strong></div></div></div>`; });
+    h += `</div>`; document.getElementById('studentResult').innerHTML = h;
+};
 
-        const cls = classroomData.find(c => c.grade === grade && c.slot === slot && c.subject === subject);
-        
-        document.getElementById('rosterResult').innerHTML = `
-            <div style="margin:10px 0 15px 5px;">
-                <div style="font-weight:800; color:var(--primary); font-size:18px;">${subject}</div>
-                <div style="font-size:14px; color:var(--text-muted); font-weight:600;">
-                    ${cls.teacher} 선생님 | ${cls.room} | 총 ${sts.length}명
+function renderRosterTab(c) {
+    const combos = new Set(); allStudents.forEach(s => Object.entries(s.subjects).forEach(([sj,sl]) => combos.add(`${s.grade}::${sl}::${sj}`))); const cl = [...combos].sort();
+    c.innerHTML = `<div class="card no-print" style="margin-bottom:30px;"><div class="card-title" style="margin-bottom:20px;">📝 과목별 명렬표 및 출석부</div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;"><div style="flex:1;min-width:260px;"><label style="display:block;font-weight:800;margin-bottom:8px;font-size:14px;color:var(--text-muted);">📚 강좌 선택</label><select id="rosterSelect" style="width:100%;padding:14px;border-radius:10px;border:2px solid var(--border);font-family:Pretendard;font-weight:700;font-size:15px;cursor:pointer;outline:none;background:var(--surface);"><option value="">강좌를 선택해주세요...</option>${cl.map(c=>{const[g,s,j]=c.split('::');const ci=findClassroom(g,s,j);return`<option value="${c}">[${g}] 슬롯 ${s} · ${j}${ci?.teacher?' ('+ci.teacher+')':''}</option>`;}).join('')}</select></div><div><label style="display:block;font-weight:800;margin-bottom:8px;font-size:14px;color:var(--text-muted);">📅 출석칸</label><input type="number" id="rosterCols" value="10" min="1" max="25" style="width:120px;padding:14px;border-radius:10px;border:2px solid var(--border);text-align:center;font-family:Pretendard;font-weight:800;font-size:16px;outline:none;background:var(--surface);"></div><div style="display:flex;gap:10px;"><button class="btn active" style="padding:14px 20px;" onclick="generateRoster()">📋 명렬표</button><button class="btn" style="padding:14px 20px;background:var(--live);color:white;" onclick="window.print()">🖨️ 인쇄</button></div></div></div><div id="rosterResult"></div>`;
+}
+
+window.generateRoster = function() {
+    const v = document.getElementById('rosterSelect').value; if (!v) return alert('강좌를 선택해주세요.');
+    const [g,sl,sj] = v.split('::'); const cols = parseInt(document.getElementById('rosterCols').value)||10;
+    const sts = allStudents.filter(s => s.grade===g && s.subjects[sj]===sl).sort((a,b)=>a.id.localeCompare(b.id));
+    const ci = findClassroom(g,sl,sj)||{};
+    
+    let h = `
+        <div class="card" style="padding:0;overflow-x:auto;">
+            <div class="print-header" style="text-align:center;margin-bottom:15px;padding-top:10px;">
+                <h2 style="font-size:24px;font-weight:900;margin-bottom:8px;">📋 [${g}] ${sj} 출석부 (슬롯 ${sl})</h2>
+                <div style="font-size:16px;font-weight:800;color:var(--text-main);margin-bottom:10px;">🧑‍🏫 ${ci.teacher||'미정'} 선생님</div>
+                <div style="display:inline-flex;gap:15px;background:var(--surface-hover);padding:8px 20px;border-radius:12px;font-weight:700;color:var(--text-muted);font-size:13px;" class="no-print">
+                    <span>📍 ${ci.room||'미정'}</span>
+                    <span style="color:var(--accent)">총 ${sts.length}명</span>
                 </div>
             </div>
-            <div class="card" style="padding: 5px 16px;">
-                ${sts.length > 0 ? sts.map((s, i) => `
-                    <div class="roster-list-item">
-                        <span style="font-size:12px; color:#cbd5e1; width:25px; font-weight:800;">${(i+1).toString().padStart(2,'0')}</span>
-                        <span style="font-weight:700; flex:1; font-size:15px;">${s.name}</span>
-                        <span style="font-family:monospace; color:var(--text-muted); font-size:14px;">${s.id}</span>
-                    </div>
-                `).join('') : '<div style="padding:20px; text-align:center; color:#999;">수강생 데이터가 없습니다.</div>'}
-            </div>
-            <button class="select-full" style="background:var(--text); color:#fff; border:none; margin-top:10px;" onclick="window.print()">🖨️ 명렬표 인쇄하기</button>
-        `;
-    };
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;font-size:13px;">연번</th>
+                        <th style="width:65px;font-size:13px;">학번</th>
+                        <th style="width:80px;font-size:13px;">이름</th>`;
+    for(let i=0;i<cols;i++) h+=`<th style="padding:2px;"><input type="text" class="date-input" placeholder="연도-월-일"></th>`;
+    h+=`</tr></thead><tbody>`;
+    if(!sts.length) h+=`<tr><td colspan="${cols+3}" style="padding:30px;color:var(--text-muted);">수강생 없음</td></tr>`;
+    else sts.forEach((s,i)=>{
+        h+=`<tr>
+                <td style="font-size:12px;color:var(--text-muted);">${i+1}</td>
+                <td style="font-size:12px;">${s.id}</td>
+                <td style="font-weight:900;font-size:14px;text-align:center;">${s.name}</td>`;
+        for(let j=0;j<cols;j++) h+=`<td></td>`;
+        h+=`</tr>`;
+    });
+    h+=`</tbody></table></div>`; document.getElementById('rosterResult').innerHTML=h;
+};
 
-    /* 학급별 로직 */
-    function renderClassPrint(container) {
-        const rooms = [...new Set(allStudents.map(s => s.homeroom))].sort();
-        container.innerHTML = `
-            <div style="position:relative;">
-                <select id="hrSel" class="select-full" onchange="showHR(this.value)">
-                    <option value="">학급을 선택하세요</option>
-                    ${rooms.map(r => `<option value="${r}">${r}</option>`).join('')}
-                </select>
-                <div style="position:absolute; right:15px; top:18px; pointer-events:none; color:var(--text-muted);">▼</div>
-            </div>
-            <div id="hrResult"></div>
-        `;
-    }
+function renderLocationTab(c) {
+    c.innerHTML = `<div style="text-align:center;margin-bottom:40px;"><h2 style="font-weight:900;margin-bottom:20px;font-size:26px;">📍 수업 장소 통합 검색</h2><p style="color:var(--text-muted);font-size:14px;font-weight:600;margin-bottom:16px;">교사, 학생, 과목명 아무거나 입력하세요</p><div class="search-wrapper no-print" style="margin:0 auto;"><span class="search-icon">🏫</span><input type="text" id="locSearch" class="search-input" placeholder="교사, 과목, 학생 이름 검색..." oninput="doLocSearch()"></div></div><div id="locResult" class="grid-layout"></div>`;
+}
+window.doLocSearch = function() {
+    const q = document.getElementById('locSearch').value.trim().toLowerCase(); const rd = document.getElementById('locResult');
+    if (!q) { rd.innerHTML = ''; return; } let results = [];
+    allStudents.filter(s => s.name.toLowerCase().includes(q)||s.id.includes(q)).forEach(s => { Object.entries(s.subjects).forEach(([sj,sl]) => { const ci = findClassroom(s.grade,sl,sj)||{}; results.push({badge:`👨‍🎓 ${s.name} (${s.id}·${s.grade})`,slot:sl,subj:sj,teacher:ci.teacher||'미정',room:ci.room||'미정',color:'var(--accent)'}); }); });
+    classroomData.filter(c=>(c.teacher&&c.teacher.toLowerCase().includes(q))||(c.subject&&c.subject.toLowerCase().includes(q))||(c.room&&c.room.toLowerCase().includes(q))).forEach(c=>{ if(!results.find(r=>r.badge.includes('강좌')&&r.slot===c.slot&&r.subj===c.subject)) results.push({badge:`📚 [${c.grade}] 강좌`,slot:c.slot,subj:c.subject,teacher:c.teacher||'미정',room:c.room||'미정',color:'var(--violet)'}); });
+    if(!results.length){rd.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:50px;background:var(--surface);border-radius:16px;font-weight:800;color:var(--text-muted);border:1px solid var(--border);">😢 "${q}" 결과 없음</div>`;return;}
+    let h=`<div style="grid-column:1/-1;font-weight:800;margin-bottom:10px;">총 <span style="color:var(--accent)">${results.length}건</span></div>`;
+    results.forEach(r=>{h+=`<div class="card" style="border-top:4px solid ${r.color};padding:20px;"><div style="font-size:12px;font-weight:800;color:${r.color};margin-bottom:6px;">${r.badge}</div><div class="card-title" style="margin-bottom:12px;font-size:18px;">${r.subj} <span class="badge" style="font-size:12px;">슬롯 ${r.slot}</span></div><div style="font-size:14px;color:var(--text-muted);font-weight:600;line-height:1.8;"><div>🧑‍🏫 <strong style="color:var(--text-main)">${r.teacher}</strong></div><div style="display:inline-block;padding:4px 12px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:15px;">📍 ${r.room}</div></div></div>`;});
+    rd.innerHTML=h;
+};
 
-    window.showHR = (hr) => {
-        if(!hr) return;
-        const sts = allStudents.filter(s => s.homeroom === hr).sort((a,b) => a.id.localeCompare(b.id));
-        let html = `<div style="margin:5px 0 15px 5px; font-weight:800; font-size:17px;">${hr} (${sts.length}명)</div>`;
-        
-        sts.forEach(s => {
-            html += `
-            <div class="card" onclick="selectStudent('${s.id}')">
-                <div style="font-weight:800; font-size:16px; margin-bottom:8px; display:flex; justify-content:space-between;">
-                    <span>${s.name}</span>
-                    <span style="color:var(--text-muted); font-size:14px;">${s.id}</span>
-                </div>
-                <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                    ${Object.entries(s.subjects).map(([k, v]) => {
-                        const slot = isNaN(k) ? v : k;
-                        const name = isNaN(k) ? k : v;
-                        return `<span class="badge">S${slot}: ${name}</span>`;
-                    }).join('')}
-                </div>
-            </div>`;
-        });
-        document.getElementById('hrResult').innerHTML = html;
-    };
 </script>
 </body>
 </html>
