@@ -1228,7 +1228,11 @@ function renderTeacherTimetable(teacher){
 }
 
 function renderLocationTab(c){
-  const teachers = [...new Set(classroomData.map(c=>c.teacher).filter(Boolean))].sort();
+  // 선택과목 교사(classroomData) + 공통수업 교사(scheduleData) 합집합
+  const teacherSet = new Set();
+  classroomData.forEach(cr => { if(cr.teacher) teacherSet.add(cr.teacher); });
+  scheduleData.forEach(r => { if(r.teacher) teacherSet.add(r.teacher); });
+  const teachers = [...teacherSet].sort();
   const rooms = [...new Set(classroomData.map(c=>c.room).filter(Boolean))].sort();
 
   c.innerHTML = `
@@ -1297,6 +1301,37 @@ function doLocSearch(q, mode){
     }
   });
 
+  // 공통수업 검색 (scheduleData에서 슬롯 없는 수업)
+  // 교사·과목·반 조합 단위로 중복 제거하여 한 카드로 표시
+  const commonMap = new Map();
+  scheduleData.filter(r=>{
+    if(r.slot) return false;  // 선택과목은 classroomData에서 이미 처리
+    if(!r.subject || r.subject === '자율활동' || r.subject === '자습') return false;
+    const teacher = (r.teacher||'').toLowerCase();
+    const subject = (r.subject||'').toLowerCase();
+    if(mode==='teacher') return teacher === q;
+    if(mode==='room') return false;  // 공통수업은 교실 정보 없음
+    return teacher.includes(q) || subject.includes(q);
+  }).forEach(r=>{
+    const key = `K|${r.grade}|${r.ban}|${r.subject}|${r.teacher}`;
+    if(!commonMap.has(key)){
+      commonMap.set(key, { grade:r.grade, ban:r.ban, subject:r.subject, teacher:r.teacher, hours:1 });
+    } else {
+      commonMap.get(key).hours++;
+    }
+  });
+  [...commonMap.values()].forEach(c=>{
+    results.push({
+      key: `K|${c.grade}-${c.ban}|${c.subject}|${c.teacher}`,
+      badge: `🏫 [${c.grade}학년 ${c.ban}반] 공통 · 주 ${c.hours}시간`,
+      slot: '공통',
+      subj: c.subject,
+      teacher: c.teacher || '미정',
+      room: '교실에서 수업',
+      color: '#10b981'
+    });
+  });
+
   if(!results.length){
     rd.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:50px;background:var(--surface);border-radius:16px;font-weight:800;color:var(--text-muted);border:1px solid var(--border);">😢 "${escapeHtml(q)}" 결과 없음</div>`;
     return;
@@ -1304,13 +1339,19 @@ function doLocSearch(q, mode){
 
   let h = `<div style="grid-column:1/-1;font-weight:800;margin-bottom:6px;">총 <span style="color:var(--accent);">${results.length}건</span></div>`;
   results.forEach(r=>{
+    const slotLabel = r.slot === '공통'
+      ? `<span class="badge" style="font-size:12px;background:#d1fae5;color:#065f46;border-color:#6ee7b7;">공통</span>`
+      : `<span class="badge" style="font-size:12px;">슬롯 ${escapeHtml(r.slot)}</span>`;
+    const roomLine = r.room === '교실에서 수업'
+      ? `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 각 반 교실</div>`
+      : `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 ${escapeHtml(r.room)}</div>`;
     h += `
       <div class="card" style="border-top:4px solid ${r.color};padding:18px;">
         <div style="font-size:12px;font-weight:800;color:${r.color};margin-bottom:6px;">${escapeHtml(r.badge)}</div>
-        <div class="card-title" style="margin-bottom:10px;font-size:17px;">${escapeHtml(r.subj)} <span class="badge" style="font-size:12px;">슬롯 ${escapeHtml(r.slot)}</span></div>
+        <div class="card-title" style="margin-bottom:10px;font-size:17px;">${escapeHtml(r.subj)} ${slotLabel}</div>
         <div style="font-size:13px;color:var(--text-muted);font-weight:600;line-height:1.8;">
           <div>🧑‍🏫 <strong style="color:var(--text-main);">${escapeHtml(r.teacher)}</strong></div>
-          <div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 ${escapeHtml(r.room)}</div>
+          ${roomLine}
         </div>
       </div>`;
   });
