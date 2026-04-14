@@ -95,6 +95,32 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
 .breakdown-item{background:var(--surface);padding:5px 11px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid var(--border)}
 .breakdown-item strong{color:var(--accent)}
 
+/* 시간표 격자 */
+.timetable{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed;margin-bottom:22px}
+.timetable th,.timetable td{padding:0;vertical-align:top}
+.timetable thead th{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 4px;font-weight:800;font-size:14px;color:var(--text-main);text-align:center}
+.timetable thead th.day-header{background:linear-gradient(135deg,#eff6ff,#ede9fe);font-size:15px}
+.timetable td.period-label{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 4px;font-weight:800;font-size:13px;color:var(--text-muted);text-align:center;width:44px}
+.tt-cell{min-height:68px;height:68px;border-radius:8px;padding:7px 8px;font-size:14px;line-height:1.3;border:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:3px;overflow:hidden}
+.tt-cell.empty{background:#fafbfc;border-style:dashed;border-color:#e5e7eb}
+.tt-cell.has-slot{border-left-width:4px;border-left-style:solid}
+.tt-cell .tt-subj{font-weight:800;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px;width:100%;text-align:center}
+.tt-cell .tt-sub{font-size:12.5px;color:var(--text-muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:center;align-items:center;gap:6px;width:100%}
+.tt-cell .tt-slot-badge{font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;font-weight:900;flex-shrink:0}
+.tt-cell.jayul{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+.tt-cell.jaseup{background:#e0e7ff;border-color:#a5b4fc;color:#4338ca}
+.tt-cell.clickable{cursor:pointer;transition:.15s}
+.tt-cell.clickable:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,0.08)}
+
+.tt-section-title{font-size:17px;font-weight:800;margin:18px 0 10px;color:var(--text-main);display:flex;align-items:center;gap:8px}
+
+@media(max-width:640px){
+  .timetable{font-size:12px}
+  .tt-cell{min-height:60px;height:60px;padding:6px 5px}
+  .tt-cell .tt-subj{font-size:13px}
+  .tt-cell .tt-sub{font-size:11px}
+}
+
 @media(max-width:640px){
   .header h1{font-size:19px}
   .container{padding:20px 14px}
@@ -142,6 +168,7 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
       <button class="btn" id="btn_slot">🗂️ 슬롯별</button>
       <button class="btn" id="btn_class">🏫 반별</button>
       <button class="btn" id="btn_roster">📝 명렬표</button>
+      <button class="btn" id="btn_teacher">🧑‍🏫 교사시간표</button>
       <button class="btn" id="btn_location">📍 수업장소</button>
     </div>
   </div>
@@ -152,6 +179,7 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
   <div id="tab_slot" class="tab-pane"></div>
   <div id="tab_class" class="tab-pane"></div>
   <div id="tab_roster" class="tab-pane"></div>
+  <div id="tab_teacher" class="tab-pane"></div>
   <div id="tab_location" class="tab-pane"></div>
 </div>
 
@@ -160,7 +188,7 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
    상수 & 유틸
    ============================================================ */
 const SHEET_ID = '1ZwOdHmsFGbCNTDJtUvLk5ExLxgLCAXyTVglkULv99lQ';
-const SC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#3b82f6","F":"#ef4444","G":"#f97316","H":"#8b5cf6","I":"#06b6d4","J":"#14b8a6","K":"#a855f7","L":"#ec4899","M":"#6366f1","N":"#0ea5e9"};
+const SC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#3b82f6","F":"#ef4444","G":"#f97316","H":"#8b5cf6","I":"#06b6d4","J":"#14b8a6","K":"#a855f7","L":"#ec4899","M":"#6366f1","N":"#0ea5e9","O":"#dc2626","P":"#ea580c","Q":"#ca8a04","R":"#16a34a","S":"#0891b2","T":"#2563eb","U":"#7c3aed","V":"#c026d3","W":"#db2777"};
 
 function escapeHtml(str){
   if(str==null) return '';
@@ -188,10 +216,12 @@ function formatRelativeTime(ts){
    ============================================================ */
 let allStudents = [];
 let classroomData = [];
+let scheduleData = [];     // 반별시간표: {grade, ban, day, period, subject, teacher, slot}
+let slotTimeMap = [];      // 슬롯시간매핑: {grade, slot, day, period}
 let dataLoaded = 0;
 let lastLoadTime = null;
 let errorTimeout = null;
-const TOTAL = 4;
+const TOTAL = 6;
 const renderedTabs = new Set();
 
 /* ============================================================
@@ -308,6 +338,74 @@ window.cb_g3_stu = function(d) { try { parseStudentSheet(d, '3학년'); } catch(
 window.cb_g2_cls = function(d) { try { parseClassroomSheet(d, '2학년'); } catch(e) { console.error(e); } checkReady(); };
 window.cb_g3_cls = function(d) { try { parseClassroomSheet(d, '3학년'); } catch(e) { console.error(e); } checkReady(); };
 
+/* 반별시간표: 학년·반·요일·교시·과목·교사·슬롯 */
+function parseSchedule(data){
+  if(!data?.table) return;
+  const cols = data.table.cols || [];
+  const rows = data.table.rows || [];
+  const labels = cols.map(c => (c.label || '').trim());
+
+  const idx = name => labels.findIndex(l => l === name);
+  const iGrade   = idx('학년');
+  const iBan     = idx('반');
+  const iDay     = idx('요일');
+  const iPeriod  = idx('교시');
+  const iSubject = idx('과목');
+  const iTeacher = idx('교사');
+  const iSlot    = idx('슬롯');
+
+  for(const row of rows){
+    if(!row.c) continue;
+    const getV = i => {
+      if(i < 0) return '';
+      const c = row.c[i];
+      if(!c || c.v === null || c.v === undefined) return '';
+      return String(c.f || c.v).trim();
+    };
+    const grade   = parseInt(getV(iGrade));
+    const ban     = parseInt(getV(iBan));
+    const day     = getV(iDay);
+    const period  = parseInt(getV(iPeriod));
+    const subject = getV(iSubject);
+    const teacher = getV(iTeacher);
+    const slot    = getV(iSlot);
+    if(!grade || !ban || !day || !period || !subject) continue;
+    scheduleData.push({ grade, ban, day, period, subject, teacher, slot });
+  }
+}
+
+/* 슬롯시간매핑: 학년·슬롯·요일·교시 */
+function parseSlotTimes(data){
+  if(!data?.table) return;
+  const cols = data.table.cols || [];
+  const rows = data.table.rows || [];
+  const labels = cols.map(c => (c.label || '').trim());
+  const idx = name => labels.findIndex(l => l === name);
+  const iGrade  = idx('학년');
+  const iSlot   = idx('슬롯');
+  const iDay    = idx('요일');
+  const iPeriod = idx('교시');
+
+  for(const row of rows){
+    if(!row.c) continue;
+    const getV = i => {
+      if(i < 0) return '';
+      const c = row.c[i];
+      if(!c || c.v === null || c.v === undefined) return '';
+      return String(c.f || c.v).trim();
+    };
+    const grade = parseInt(getV(iGrade));
+    const slot = getV(iSlot);
+    const day = getV(iDay);
+    const period = parseInt(getV(iPeriod));
+    if(!grade || !slot || !day || !period) continue;
+    slotTimeMap.push({ grade, slot, day, period });
+  }
+}
+
+window.cb_schedule  = function(d) { try { parseSchedule(d); } catch(e) { console.error(e); } checkReady(); };
+window.cb_slotmap   = function(d) { try { parseSlotTimes(d); } catch(e) { console.error(e); } checkReady(); };
+
 /* ============================================================
    데이터 로드
    ============================================================ */
@@ -341,10 +439,12 @@ function fetchAllData(){
   }, 20000);
 
   [
-    { gid:'0',          cb:'cb_g2_stu', hdr:true },
-    { gid:'1935968761', cb:'cb_g3_stu', hdr:true },
-    { gid:'606989081',  cb:'cb_g2_cls', hdr:false },
-    { gid:'44867740',   cb:'cb_g3_cls', hdr:false },
+    { gid:'0',          cb:'cb_g2_stu',  hdr:true },
+    { gid:'1935968761', cb:'cb_g3_stu',  hdr:true },
+    { gid:'606989081',  cb:'cb_g2_cls',  hdr:false },
+    { gid:'44867740',   cb:'cb_g3_cls',  hdr:false },
+    { gid:'1926478023', cb:'cb_schedule', hdr:true },
+    { gid:'863995751',  cb:'cb_slotmap',  hdr:true },
   ].forEach(ep => {
     const s = document.createElement('script');
     s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${ep.cb}&gid=${ep.gid}${ep.hdr?'&headers=1':''}&_=${Date.now()}`;
@@ -355,10 +455,11 @@ function fetchAllData(){
 function reloadData(){
   allStudents = [];
   classroomData = [];
+  scheduleData = [];
+  slotTimeMap = [];
   dataLoaded = 0;
   renderedTabs.clear();
-  // 탭 내용 초기화 (새로 렌더되도록)
-  ['student','slot','class','roster','location'].forEach(id=>{
+  ['student','slot','class','roster','teacher','location'].forEach(id=>{
     const el = document.getElementById('tab_'+id);
     if(el) el.innerHTML = '';
   });
@@ -390,6 +491,7 @@ const TAB_RENDERERS = {
   slot: renderSlotTab,
   class: renderClassTab,
   roster: renderRosterTab,
+  teacher: renderTeacherTab,
   location: renderLocationTab,
 };
 function switchTab(id){
@@ -406,7 +508,7 @@ function switchTab(id){
 }
 
 /* 헤더 버튼 바인딩 */
-['student','slot','class','roster','location'].forEach(id=>{
+['student','slot','class','roster','teacher','location'].forEach(id=>{
   document.getElementById('btn_'+id).addEventListener('click', ()=>switchTab(id));
 });
 document.getElementById('refreshBtn').addEventListener('click', reloadData);
@@ -492,6 +594,14 @@ function selectStudent(id){
     return { subj, slot, teacher: ci?.teacher||'미정', room: ci?.room||'미정' };
   }).sort((a,b)=>a.slot.localeCompare(b.slot));
 
+  // 반 번호 추출 (예: "3학년 1반" → 1)
+  const banMatch = s.homeroom.match(/(\d+)반/);
+  const ban = banMatch ? parseInt(banMatch[1]) : null;
+  const gradeNum = parseInt(s.grade);  // "3학년" → 3
+
+  // 시간표 격자 (공통은 반별시간표, 선택과목은 학생 subjects + slotTimeMap)
+  const timetableHtml = (gradeNum && ban) ? buildStudentTimetable(s) : '';
+
   let h = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;padding:18px 22px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border-radius:16px;">
       <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;flex-shrink:0;">${escapeHtml(s.name.charAt(0))}</div>
@@ -500,6 +610,8 @@ function selectStudent(id){
         <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">${escapeHtml(s.homeroom)} · 학번 ${escapeHtml(s.id)} · 수강과목 ${pairs.length}개</div>
       </div>
     </div>
+    ${timetableHtml}
+    <div class="tt-section-title">📚 선택과목 상세</div>
     <div class="grid-layout">`;
 
   if(!pairs.length){
@@ -519,6 +631,131 @@ function selectStudent(id){
   });
   h += `</div>`;
   document.getElementById('studentResult').innerHTML = h;
+}
+
+/* ============================================================
+   시간표 격자 헬퍼
+   ============================================================ */
+const DAYS = ['월','화','수','목','금'];
+
+function maxPeriodOf(entries){
+  let max = 5;
+  entries.forEach(e => { if(e.period > max) max = e.period; });
+  if(max < 5) max = 5;
+  if(max > 9) max = 9;
+  return max;
+}
+
+function renderTimetableGrid(entries, opts){
+  // entries: [{day, period, subject, teacher, slot, extra?}, ...]
+  // opts: { highlightStudentSubjects?: {subject: slot}, showBan?: boolean }
+  opts = opts || {};
+  const maxP = maxPeriodOf(entries);
+  const grid = {};
+  entries.forEach(e=>{
+    const k = `${e.day}|${e.period}`;
+    if(!grid[k]) grid[k] = [];
+    grid[k].push(e);
+  });
+
+  let h = `<table class="timetable"><thead><tr><th></th>`;
+  DAYS.forEach(d => { h += `<th class="day-header">${d}</th>`; });
+  h += `</tr></thead><tbody>`;
+
+  for(let p=1; p<=maxP; p++){
+    h += `<tr><td class="period-label">${p}교시</td>`;
+    DAYS.forEach(d=>{
+      const cells = grid[`${d}|${p}`] || [];
+      if(!cells.length){
+        h += `<td><div class="tt-cell empty"></div></td>`;
+        return;
+      }
+      // 한 칸에 하나만 (반별시간표는 학생 기준으로 겹칠 일 없음)
+      // 학생 뷰에서는 "이 학생이 듣는 것"만 골라야 함 (선택과목 필터)
+      let chosen = null;
+      if(opts.highlightStudentSubjects){
+        // 학생이 듣는 과목/슬롯과 매칭되는 것 찾기
+        const picks = cells.filter(e=>{
+          if(!e.slot){
+            // 공통과목: 전부 학생이 듣는다고 가정
+            return true;
+          }
+          // 선택과목: 학생의 해당 과목·슬롯 매칭
+          return opts.highlightStudentSubjects[e.subject] === e.slot;
+        });
+        chosen = picks[0] || null;
+      } else {
+        chosen = cells[0];
+      }
+      if(!chosen){
+        h += `<td><div class="tt-cell empty"></div></td>`;
+        return;
+      }
+      h += `<td>${renderTimetableCell(chosen, opts)}</td>`;
+    });
+    h += `</tr>`;
+  }
+  h += `</tbody></table>`;
+  return h;
+}
+
+function renderTimetableCell(e, opts){
+  opts = opts || {};
+  if(e.subject === '자율활동'){
+    return `<div class="tt-cell jayul"><div class="tt-subj">자율활동</div></div>`;
+  }
+  if(e.subject === '자습'){
+    return `<div class="tt-cell jaseup"><div class="tt-subj">자습</div></div>`;
+  }
+  const col = e.slot ? slotColor(e.slot) : '#94a3b8';
+  const slotClass = e.slot ? ' has-slot' : '';
+  const subLine = opts.showBan
+    ? `${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반 · ${escapeHtml(e.teacher||'')}`
+    : escapeHtml(e.teacher || '');
+  const slotBadge = e.slot ? `<span class="tt-slot-badge" style="background:${col}">${escapeHtml(e.slot)}</span>` : '';
+  return `
+    <div class="tt-cell${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
+      <div class="tt-subj">${escapeHtml(e.subject)}</div>
+      <div class="tt-sub"><span>${subLine}</span>${slotBadge}</div>
+    </div>`;
+}
+
+function buildStudentTimetable(student){
+  const grade = parseInt(student.grade);  // "3학년" → 3
+  const banM = student.homeroom.match(/(\d+)반/);
+  const ban = banM ? parseInt(banM[1]) : null;
+  if(!grade || !ban) return '';
+
+  const entries = [];
+
+  // 1) 공통과목 / 자율 / 자습: 반별시간표에서 슬롯 없는 행만
+  scheduleData
+    .filter(r => r.grade === grade && r.ban === ban && !r.slot)
+    .forEach(r => entries.push({ ...r }));
+
+  // 2) 선택과목: 학생의 과목·슬롯 + slotTimeMap 시간 조합
+  //    슬롯이 'W2' 처럼 숫자 붙어있으면 첫 글자로 시간 조회 (같은 시간대 분반)
+  Object.entries(student.subjects).forEach(([subj, slotRaw]) => {
+    const baseSlot = (slotRaw || '').charAt(0);
+    if(!baseSlot) return;
+    const ci = findClassroom(student.grade, slotRaw, subj);
+    const teacher = ci?.teacher || '';
+    slotTimeMap
+      .filter(t => t.grade === grade && t.slot === baseSlot)
+      .forEach(t => {
+        entries.push({
+          grade, ban,
+          day: t.day, period: t.period,
+          subject: subj, teacher, slot: slotRaw
+        });
+      });
+  });
+
+  if(!entries.length){
+    return `<div style="margin:14px 0;padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;font-weight:700;color:#92400e;">⚠️ 시간표 데이터 없음 (${grade}학년 ${ban}반)</div>`;
+  }
+  const grid = renderTimetableGrid(entries, {});
+  return `<div class="tt-section-title">📅 주간 시간표</div>${grid}`;
 }
 
 /* ============================================================
@@ -550,6 +787,7 @@ function renderSlotContent(){
   const container = document.getElementById('slotContent');
   if(!container) return;
   const grade = slotTabGrade;
+  const gradeNum = parseInt(grade);
   const items = classroomData.filter(c=>c.grade===grade);
   if(!items.length){
     container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:40px;font-weight:700;">${escapeHtml(grade)} 데이터 없음</div>`;
@@ -561,16 +799,27 @@ function renderSlotContent(){
     bySlot[it.slot].push(it);
   });
   const slots = Object.keys(bySlot).sort();
+  const dayOrder = {'월':0,'화':1,'수':2,'목':3,'금':4};
+
   let h = '';
   slots.forEach(slot=>{
     const col = slotColor(slot);
     const list = bySlot[slot];
     const total = list.reduce((sum,x)=>sum+(x.count||0), 0);
+    // 슬롯 시간 조회
+    const times = slotTimeMap
+      .filter(t => t.grade === gradeNum && t.slot === slot)
+      .sort((a,b) => (dayOrder[a.day] - dayOrder[b.day]) || (a.period - b.period))
+      .map(t => `${t.day}${t.period}`);
+    const timesHtml = times.length
+      ? `<span class="slot-summary" style="background:${col}15;color:${col};padding:3px 9px;border-radius:6px;">🕒 ${times.join(' · ')}</span>`
+      : '';
     h += `
       <div class="slot-group">
         <div class="slot-group-header">
           <span class="slot-label" style="background:${col};">슬롯 ${escapeHtml(slot)}</span>
           <span class="slot-summary">${list.length}개 강좌 · 총 ${total}명</span>
+          ${timesHtml}
         </div>
         <div class="grid-layout">`;
     list.forEach(it=>{
@@ -831,8 +1080,74 @@ function generateRoster(){
 }
 
 /* ============================================================
-   수업 장소 탭
+   교사 시간표 탭
    ============================================================ */
+let teacherTabSelected = null;
+function renderTeacherTab(c){
+  // 반별시간표에서 등장하는 모든 교사 수집
+  const teachers = [...new Set(scheduleData.map(r=>r.teacher).filter(Boolean))].sort();
+
+  c.innerHTML = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">🧑‍🏫 교사 시간표</h2>
+      <p style="color:var(--text-muted);font-size:13px;font-weight:600;">교사 선택 시 주간 시간표가 표시됩니다.</p>
+    </div>
+    <div class="filter-bar no-print" style="justify-content:center;">
+      <div style="min-width:260px;">
+        <label>교사 선택</label>
+        <select id="teacherSelect" style="width:100%;">
+          <option value="">— 교사를 선택하세요 —</option>
+          ${teachers.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div id="teacherResult" style="margin-top:18px;"></div>`;
+
+  const sel = document.getElementById('teacherSelect');
+  if(teacherTabSelected){
+    sel.value = teacherTabSelected;
+    renderTeacherTimetable(teacherTabSelected);
+  }
+  sel.addEventListener('change', ()=>{
+    teacherTabSelected = sel.value;
+    if(sel.value) renderTeacherTimetable(sel.value);
+    else document.getElementById('teacherResult').innerHTML = '';
+  });
+}
+
+function renderTeacherTimetable(teacher){
+  const out = document.getElementById('teacherResult');
+  const entries = scheduleData.filter(r => r.teacher === teacher);
+  if(!entries.length){
+    out.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);font-weight:700;">해당 교사의 시간표 데이터가 없습니다.</div>`;
+    return;
+  }
+
+  // 요약 통계
+  const classesTaught = [...new Set(entries.map(e=>`${e.grade}-${e.ban}`))].sort();
+  const subjects = [...new Set(entries.map(e=>e.subject))].sort();
+  const totalHours = entries.length;
+
+  // 격자
+  const grid = renderTimetableGrid(entries, { showBan: true });
+
+  out.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:16px 22px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border-radius:16px;">
+      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0;">${escapeHtml(teacher.charAt(0))}</div>
+      <div style="flex:1;">
+        <div style="font-size:20px;font-weight:900;">${escapeHtml(teacher)} 선생님</div>
+        <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">
+          주 ${totalHours}시간 · ${classesTaught.length}개 학급 · ${subjects.length}개 과목
+        </div>
+      </div>
+    </div>
+    <div class="breakdown">
+      <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">과목:</span>
+      ${subjects.map(s=>`<span class="breakdown-item">${escapeHtml(s)}</span>`).join('')}
+    </div>
+    ${grid}`;
+}
+
 function renderLocationTab(c){
   const teachers = [...new Set(classroomData.map(c=>c.teacher).filter(Boolean))].sort();
   const rooms = [...new Set(classroomData.map(c=>c.room).filter(Boolean))].sort();
