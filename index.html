@@ -975,26 +975,44 @@ function renderClassContent(){
     host.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:30px;font-weight:700;">위에서 반을 선택해주세요.</div>`;
     return;
   }
+  const banM = classTabRoom.match(/(\d+)반/);
+  const gradeNum = parseInt(classTabGrade);
+  const ban = banM ? parseInt(banM[1]) : null;
+
   const sts = allStudents.filter(s=>s.grade===classTabGrade && s.homeroom===classTabRoom).sort((a,b)=>a.id.localeCompare(b.id));
 
-  const dist = {};
-  sts.forEach(s=>{
-    Object.keys(s.subjects).forEach(subj=>{
-      dist[subj] = (dist[subj]||0)+1;
-    });
+  // 반별 시간표 데이터 구성: 반별시간표 + 슬롯별 선택과목 매핑
+  const entries = [];
+  // 공통/자율/자습
+  scheduleData
+    .filter(r => r.grade === gradeNum && r.ban === ban && !r.slot)
+    .forEach(r => entries.push({ ...r }));
+  // 선택과목: 해당 반의 slotTimeMap 시간대에 "(선택)" 표시
+  const slotsInGrade = [...new Set(slotTimeMap.filter(t=>t.grade===gradeNum).map(t=>t.slot))];
+  slotsInGrade.forEach(slot => {
+    slotTimeMap
+      .filter(t => t.grade === gradeNum && t.slot === slot)
+      .forEach(t => {
+        entries.push({
+          grade: gradeNum, ban,
+          day: t.day, period: t.period,
+          subject: `선택 (슬롯 ${slot})`,
+          teacher: '',
+          slot
+        });
+      });
   });
-  const distList = Object.entries(dist).sort((a,b)=>b[1]-a[1]);
+
+  const gridHtml = (gradeNum && ban && entries.length)
+    ? renderTimetableGrid(entries, {})
+    : `<div style="text-align:center;padding:30px;color:var(--text-muted);font-weight:700;">시간표 데이터 없음</div>`;
 
   let h = `
     <div class="card" style="margin-bottom:18px;">
       <div class="card-header">
-        <div class="card-title">📊 ${escapeHtml(classTabRoom)} 선택과목 분포 <span class="badge">${sts.length}명</span></div>
+        <div class="card-title">📅 ${escapeHtml(classTabRoom)} 주간 시간표 <span class="badge">${sts.length}명</span></div>
       </div>
-      <div class="dist-grid">
-        ${distList.map(([subj,cnt])=>`
-          <div class="dist-cell"><span class="subj">${escapeHtml(subj)}</span><span class="cnt">${cnt}명</span></div>
-        `).join('') || '<div style="color:var(--text-muted);font-weight:700;">데이터 없음</div>'}
-      </div>
+      <div style="margin-top:14px;">${gridHtml}</div>
     </div>
     <div class="card">
       <div class="card-title" style="margin-bottom:14px;">👥 학생 목록</div>
