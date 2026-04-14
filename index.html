@@ -121,6 +121,30 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
   .tt-cell .tt-sub{font-size:11px}
 }
 
+/* 모바일 전용: 요일 탭 + 세로 리스트 */
+.tt-mobile{display:none}
+@media(max-width:640px){
+  .timetable{display:none}
+  .tt-mobile{display:block}
+  .tt-day-tabs{display:flex;gap:6px;margin-bottom:14px;background:var(--surface);padding:5px;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.04)}
+  .tt-day-tab{flex:1;background:transparent;border:none;padding:10px 0;border-radius:8px;font-weight:800;font-size:15px;color:var(--text-muted);cursor:pointer;font-family:inherit;transition:.15s}
+  .tt-day-tab.active{background:var(--accent);color:#fff;box-shadow:0 4px 10px var(--accent-glow)}
+  .tt-day-list{display:flex;flex-direction:column;gap:6px}
+  .tt-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--border);min-height:44px}
+  .tt-row.empty{background:#fafbfc;border-style:dashed;border-color:#e5e7eb;color:#9ca3af;font-weight:700;font-size:13px;min-height:36px}
+  .tt-row.has-slot{border-left-width:4px;border-left-style:solid}
+  .tt-row.jayul{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+  .tt-row.jaseup{background:#e0e7ff;border-color:#a5b4fc;color:#4338ca}
+  .tt-row-period{font-weight:900;font-size:13px;color:var(--text-muted);min-width:36px;flex-shrink:0}
+  .tt-row.jayul .tt-row-period,.tt-row.jaseup .tt-row-period{color:inherit}
+  .tt-row-body{flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+  .tt-row-subj{font-weight:800;font-size:15px;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tt-row.jayul .tt-row-subj,.tt-row.jaseup .tt-row-subj{color:inherit}
+  .tt-row-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+  .tt-row-teacher{font-size:13px;color:var(--text-muted);font-weight:700}
+  .tt-row-slot{font-size:11px;padding:2px 6px;border-radius:4px;color:#fff;font-weight:900}
+}
+
 @media(max-width:640px){
   .header h1{font-size:19px}
   .container{padding:20px 14px}
@@ -513,6 +537,19 @@ function switchTab(id){
 });
 document.getElementById('refreshBtn').addEventListener('click', reloadData);
 
+/* 모바일 요일 탭 이벤트 위임 (한 번만 등록) */
+document.addEventListener('click', e => {
+  const tab = e.target.closest('.tt-day-tab');
+  if(!tab) return;
+  const wrap = tab.closest('.tt-mobile');
+  if(!wrap) return;
+  const day = tab.dataset.day;
+  wrap.querySelectorAll('.tt-day-tab').forEach(b => b.classList.toggle('active', b === tab));
+  wrap.querySelectorAll('[data-day-list]').forEach(list => {
+    list.style.display = (list.dataset.dayList === day) ? '' : 'none';
+  });
+});
+
 /* ============================================================
    학생 조회 탭
    ============================================================ */
@@ -647,8 +684,7 @@ function maxPeriodOf(entries){
 }
 
 function renderTimetableGrid(entries, opts){
-  // entries: [{day, period, subject, teacher, slot, extra?}, ...]
-  // opts: { highlightStudentSubjects?: {subject: slot}, showBan?: boolean }
+  // entries: [{day, period, subject, teacher, slot, ...}, ...]
   opts = opts || {};
   const maxP = maxPeriodOf(entries);
   const grid = {};
@@ -658,45 +694,88 @@ function renderTimetableGrid(entries, opts){
     grid[k].push(e);
   });
 
+  const pick = (cells) => {
+    if(!cells || !cells.length) return null;
+    if(opts.highlightStudentSubjects){
+      const picks = cells.filter(e=>{
+        if(!e.slot) return true;
+        return opts.highlightStudentSubjects[e.subject] === e.slot;
+      });
+      return picks[0] || null;
+    }
+    return cells[0];
+  };
+
+  // === 데스크톱: 격자 ===
   let h = `<table class="timetable"><thead><tr><th></th>`;
   DAYS.forEach(d => { h += `<th class="day-header">${d}</th>`; });
   h += `</tr></thead><tbody>`;
-
   for(let p=1; p<=maxP; p++){
     h += `<tr><td class="period-label">${p}교시</td>`;
     DAYS.forEach(d=>{
-      const cells = grid[`${d}|${p}`] || [];
-      if(!cells.length){
-        h += `<td><div class="tt-cell empty"></div></td>`;
-        return;
-      }
-      // 한 칸에 하나만 (반별시간표는 학생 기준으로 겹칠 일 없음)
-      // 학생 뷰에서는 "이 학생이 듣는 것"만 골라야 함 (선택과목 필터)
-      let chosen = null;
-      if(opts.highlightStudentSubjects){
-        // 학생이 듣는 과목/슬롯과 매칭되는 것 찾기
-        const picks = cells.filter(e=>{
-          if(!e.slot){
-            // 공통과목: 전부 학생이 듣는다고 가정
-            return true;
-          }
-          // 선택과목: 학생의 해당 과목·슬롯 매칭
-          return opts.highlightStudentSubjects[e.subject] === e.slot;
-        });
-        chosen = picks[0] || null;
-      } else {
-        chosen = cells[0];
-      }
-      if(!chosen){
-        h += `<td><div class="tt-cell empty"></div></td>`;
-        return;
-      }
+      const chosen = pick(grid[`${d}|${p}`]);
+      if(!chosen){ h += `<td><div class="tt-cell empty"></div></td>`; return; }
       h += `<td>${renderTimetableCell(chosen, opts)}</td>`;
     });
     h += `</tr>`;
   }
   h += `</tbody></table>`;
-  return h;
+
+  // === 모바일: 요일 탭 + 세로 리스트 ===
+  const tabId = 'ttm_' + Math.random().toString(36).slice(2, 8);
+  let m = `<div class="tt-mobile" data-tab-id="${tabId}">`;
+  m += `<div class="tt-day-tabs">`;
+  DAYS.forEach((d, i) => {
+    m += `<button class="tt-day-tab${i===0?' active':''}" data-day="${d}">${d}</button>`;
+  });
+  m += `</div>`;
+  DAYS.forEach((d, i) => {
+    m += `<div class="tt-day-list" data-day-list="${d}" style="${i===0?'':'display:none'}">`;
+    let anyRow = false;
+    for(let p=1; p<=maxP; p++){
+      const chosen = pick(grid[`${d}|${p}`]);
+      if(!chosen){
+        m += `<div class="tt-row empty"><span class="tt-row-period">${p}교시</span><span>—</span></div>`;
+        continue;
+      }
+      anyRow = true;
+      m += renderTimetableRow(p, chosen, opts);
+    }
+    if(!anyRow){
+      // 전체가 empty인 요일은 간단히 표시
+    }
+    m += `</div>`;
+  });
+  m += `</div>`;
+
+  return h + m;
+}
+
+function renderTimetableRow(period, e, opts){
+  opts = opts || {};
+  if(e.subject === '자율활동'){
+    return `<div class="tt-row jayul"><span class="tt-row-period">${period}교시</span><div class="tt-row-body"><span class="tt-row-subj">자율활동</span></div></div>`;
+  }
+  if(e.subject === '자습'){
+    return `<div class="tt-row jaseup"><span class="tt-row-period">${period}교시</span><div class="tt-row-body"><span class="tt-row-subj">자습</span></div></div>`;
+  }
+  const col = e.slot ? slotColor(e.slot) : '#94a3b8';
+  const slotClass = e.slot ? ' has-slot' : '';
+  const meta = opts.showBan
+    ? `${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반${e.teacher?' · '+escapeHtml(e.teacher):''}`
+    : (e.teacher ? escapeHtml(e.teacher) : '');
+  const slotBadge = e.slot ? `<span class="tt-row-slot" style="background:${col}">${escapeHtml(e.slot)}</span>` : '';
+  return `
+    <div class="tt-row${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
+      <span class="tt-row-period">${period}교시</span>
+      <div class="tt-row-body">
+        <span class="tt-row-subj">${escapeHtml(e.subject)}</span>
+        <div class="tt-row-meta">
+          ${meta?`<span class="tt-row-teacher">${meta}</span>`:''}
+          ${slotBadge}
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderTimetableCell(e, opts){
