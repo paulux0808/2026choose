@@ -95,6 +95,10 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
 .breakdown-item{background:var(--surface);padding:5px 11px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid var(--border)}
 .breakdown-item strong{color:var(--accent)}
 
+/* 숨은 하이퍼링크: 커서만 살짝 바꿔서 눌러볼 수 있게 */
+[data-nav]{cursor:pointer}
+[data-nav]:active{opacity:0.6}
+
 /* 시간표 격자 */
 .timetable{width:100%;border-collapse:separate;border-spacing:3px;table-layout:fixed;margin-bottom:22px}
 .timetable th,.timetable td{padding:0;vertical-align:top}
@@ -537,6 +541,87 @@ function switchTab(id){
 });
 document.getElementById('refreshBtn').addEventListener('click', reloadData);
 
+/* ============================================================
+   전역 네비게이션 (숨은 하이퍼링크)
+   ============================================================ */
+const NAV = {
+  student(id){
+    if(!id) return;
+    switchTab('student');
+    // 탭이 처음 열릴 때 DOM 준비 대기
+    setTimeout(()=>selectStudent(id), 0);
+  },
+  teacher(name){
+    if(!name) return;
+    teacherTabSelected = name;
+    switchTab('teacher');
+    setTimeout(()=>{
+      const sel = document.getElementById('teacherSelect');
+      if(sel){ sel.value = name; sel.dispatchEvent(new Event('change')); }
+    }, 0);
+  },
+  slot(grade, slot){
+    // grade: "2학년" or "3학년" (classroomData 형식) / 숫자도 허용
+    if(!slot) return;
+    const gStr = (typeof grade === 'number') ? `${grade}학년` : grade;
+    slotTabGrade = gStr === '3학년' ? '3학년' : '2학년';
+    switchTab('slot');
+    setTimeout(()=>{
+      const pane = document.getElementById('tab_slot');
+      if(!pane) return;
+      // 서브탭 버튼 동기화
+      pane.querySelectorAll('.slot-subtabs .btn').forEach(b=>{
+        b.classList.toggle('active', b.dataset.grade === slotTabGrade);
+      });
+      renderSlotContent();
+      // 해당 슬롯 그룹으로 스크롤
+      setTimeout(()=>{
+        const target = pane.querySelector(`.slot-group[data-slot="${CSS.escape(slot)}"]`);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+      }, 30);
+    }, 0);
+  },
+  roster(grade, slot, subject){
+    const gStr = (typeof grade === 'number') ? `${grade}학년` : grade;
+    jumpToRoster(gStr, slot, subject);
+  },
+  class(grade, ban){
+    if(!grade || !ban) return;
+    const gStr = (typeof grade === 'number') ? `${grade}학년` : grade;
+    classTabGrade = gStr;
+    classTabRoom = `${gStr} ${ban}반`;
+    switchTab('class');
+    setTimeout(()=>{
+      const pane = document.getElementById('tab_class');
+      if(!pane) return;
+      pane.querySelectorAll('.slot-subtabs .btn').forEach(b=>{
+        b.classList.toggle('active', b.dataset.grade === classTabGrade);
+      });
+      renderClassChips();
+      renderClassContent();
+    }, 0);
+  },
+};
+
+/* 전역 클릭 위임: data-nav 있는 요소는 네비게이트, 이벤트 버블링 차단
+   - 요일 탭(.tt-day-tab)처럼 기존 기능 있는 것은 제외 */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-nav]');
+  if(!el) return;
+  // 카드/링크 안에 또 다른 nav가 중첩될 수 있으므로 가장 가까운 것만
+  const nav = el.dataset.nav;
+  if(!NAV[nav]) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const args = [];
+  for(let i=1; i<=4; i++){
+    const v = el.dataset['arg'+i];
+    if(v === undefined) break;
+    args.push(v);
+  }
+  NAV[nav](...args);
+}, true);  // capture 단계에서 먼저 처리
+
 /* 모바일 요일 탭 이벤트 위임 (한 번만 등록) */
 document.addEventListener('click', e => {
   const tab = e.target.closest('.tt-day-tab');
@@ -644,7 +729,10 @@ function selectStudent(id){
       <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;flex-shrink:0;">${escapeHtml(s.name.charAt(0))}</div>
       <div>
         <div style="font-size:22px;font-weight:900;">${escapeHtml(s.name)}</div>
-        <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">${escapeHtml(s.homeroom)} · 학번 ${escapeHtml(s.id)} · 수강과목 ${pairs.length}개</div>
+        <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">
+          <span data-nav="class" data-arg1="${escapeHtml(s.grade)}" data-arg2="${ban||''}">${escapeHtml(s.homeroom)}</span>
+          · 학번 ${escapeHtml(s.id)} · 수강과목 ${pairs.length}개
+        </div>
       </div>
     </div>
     ${timetableHtml}
@@ -658,10 +746,12 @@ function selectStudent(id){
     const col = slotColor(p.slot);
     h += `
       <div class="card" style="border-left:5px solid ${col};padding:18px;">
-        <div class="card-header"><span class="badge" style="background:${col}15;color:${col};border-color:${col}40;">📌 슬롯 ${escapeHtml(p.slot)}</span></div>
-        <div class="card-title" style="margin-bottom:12px;font-size:19px;">${escapeHtml(p.subj)}</div>
+        <div class="card-header">
+          <span class="badge" style="background:${col}15;color:${col};border-color:${col}40;" data-nav="slot" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}">📌 슬롯 ${escapeHtml(p.slot)}</span>
+        </div>
+        <div class="card-title" style="margin-bottom:12px;font-size:19px;" data-nav="roster" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}" data-arg3="${escapeHtml(p.subj)}">${escapeHtml(p.subj)}</div>
         <div style="background:var(--surface-hover);padding:11px;border-radius:10px;font-weight:700;font-size:13px;">
-          <div style="margin-bottom:5px;">🧑‍🏫 지도교사: <span style="color:var(--text-muted)">${escapeHtml(p.teacher)}</span></div>
+          <div style="margin-bottom:5px;">🧑‍🏫 지도교사: <span style="color:var(--text-muted)" data-nav="teacher" data-arg1="${escapeHtml(p.teacher)}">${escapeHtml(p.teacher)}</span></div>
           <div>📍 수업장소: <strong style="color:${col};font-size:14px;">${escapeHtml(p.room)}</strong></div>
         </div>
       </div>`;
@@ -761,18 +851,38 @@ function renderTimetableRow(period, e, opts){
   }
   const col = e.slot ? slotColor(e.slot) : '#94a3b8';
   const slotClass = e.slot ? ' has-slot' : '';
-  const meta = opts.showBan
-    ? `${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반${e.teacher?' · '+escapeHtml(e.teacher):''}`
-    : (e.teacher ? escapeHtml(e.teacher) : '');
-  const slotBadge = e.slot ? `<span class="tt-row-slot" style="background:${col}">${escapeHtml(e.slot)}</span>` : '';
+
+  const teacherNav = e.teacher
+    ? `<span data-nav="teacher" data-arg1="${escapeHtml(e.teacher)}">${escapeHtml(e.teacher)}</span>`
+    : '';
+  const banNav = opts.showBan
+    ? `<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}">${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반</span>`
+    : '';
+  const metaInner = opts.showBan
+    ? (teacherNav ? `${banNav} · ${teacherNav}` : banNav)
+    : teacherNav;
+
+  const slotBadgeHtml = e.slot
+    ? `<span class="tt-row-slot" style="background:${col}" data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}">${escapeHtml(e.slot)}</span>`
+    : '';
+
+  let subjNav = '';
+  if(e.navOverride === 'slot' && e.grade && e.slot){
+    subjNav = `data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}"`;
+  } else if(e.slot && e.grade){
+    subjNav = `data-nav="roster" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}" data-arg3="${escapeHtml(e.subject)}"`;
+  } else if(e.grade && e.ban){
+    subjNav = `data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}"`;
+  }
+
   return `
     <div class="tt-row${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
       <span class="tt-row-period">${period}교시</span>
       <div class="tt-row-body">
-        <span class="tt-row-subj">${escapeHtml(e.subject)}</span>
+        <span class="tt-row-subj" ${subjNav}>${escapeHtml(e.subject)}</span>
         <div class="tt-row-meta">
-          ${meta?`<span class="tt-row-teacher">${meta}</span>`:''}
-          ${slotBadge}
+          ${metaInner?`<span class="tt-row-teacher">${metaInner}</span>`:''}
+          ${slotBadgeHtml}
         </div>
       </div>
     </div>`;
@@ -788,14 +898,31 @@ function renderTimetableCell(e, opts){
   }
   const col = e.slot ? slotColor(e.slot) : '#94a3b8';
   const slotClass = e.slot ? ' has-slot' : '';
+  const teacherNav = e.teacher
+    ? `<span data-nav="teacher" data-arg1="${escapeHtml(e.teacher)}">${escapeHtml(e.teacher)}</span>`
+    : '';
+  const banNav = opts.showBan
+    ? `<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}">${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반</span>`
+    : '';
   const subLine = opts.showBan
-    ? `${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반 · ${escapeHtml(e.teacher||'')}`
-    : escapeHtml(e.teacher || '');
-  const slotBadge = e.slot ? `<span class="tt-slot-badge" style="background:${col}">${escapeHtml(e.slot)}</span>` : '';
+    ? (teacherNav ? `${banNav} · ${teacherNav}` : banNav)
+    : teacherNav;
+  const slotBadgeHtml = e.slot
+    ? `<span class="tt-slot-badge" style="background:${col}" data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}">${escapeHtml(e.slot)}</span>`
+    : '';
+  // 과목명은 선택과목이면 명렬표로, 공통수업이면 반별 조회로
+  let subjNav = '';
+  if(e.navOverride === 'slot' && e.grade && e.slot){
+    subjNav = `data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}"`;
+  } else if(e.slot && e.grade){
+    subjNav = `data-nav="roster" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}" data-arg3="${escapeHtml(e.subject)}"`;
+  } else if(e.grade && e.ban){
+    subjNav = `data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}"`;
+  }
   return `
     <div class="tt-cell${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
-      <div class="tt-subj">${escapeHtml(e.subject)}</div>
-      <div class="tt-sub"><span>${subLine}</span>${slotBadge}</div>
+      <div class="tt-subj" ${subjNav}>${escapeHtml(e.subject)}</div>
+      <div class="tt-sub"><span>${subLine}</span>${slotBadgeHtml}</div>
     </div>`;
 }
 
@@ -894,7 +1021,7 @@ function renderSlotContent(){
       ? `<span class="slot-summary" style="background:${col}15;color:${col};padding:3px 9px;border-radius:6px;">🕒 ${times.join(' · ')}</span>`
       : '';
     h += `
-      <div class="slot-group">
+      <div class="slot-group" data-slot="${escapeHtml(slot)}">
         <div class="slot-group-header">
           <span class="slot-label" style="background:${col};">슬롯 ${escapeHtml(slot)}</span>
           <span class="slot-summary">${list.length}개 강좌 · 총 ${total}명</span>
@@ -903,10 +1030,10 @@ function renderSlotContent(){
         <div class="grid-layout">`;
     list.forEach(it=>{
       h += `
-        <div class="card clickable" data-grade="${escapeHtml(it.grade)}" data-slot="${escapeHtml(it.slot)}" data-subj="${escapeHtml(it.subject)}" style="border-left:4px solid ${col};">
+        <div class="card clickable" data-nav="roster" data-arg1="${escapeHtml(it.grade)}" data-arg2="${escapeHtml(it.slot)}" data-arg3="${escapeHtml(it.subject)}" style="border-left:4px solid ${col};">
           <div class="card-title" style="margin-bottom:10px;">${escapeHtml(it.subject)}</div>
           <div style="font-size:13px;color:var(--text-muted);font-weight:700;line-height:1.8;">
-            <div>🧑‍🏫 ${escapeHtml(it.teacher||'미정')}</div>
+            <div>🧑‍🏫 <span data-nav="teacher" data-arg1="${escapeHtml(it.teacher||'')}">${escapeHtml(it.teacher||'미정')}</span></div>
             <div>📍 ${escapeHtml(it.room||'미정')} · 👥 ${it.count||0}명</div>
           </div>
           <div style="margin-top:10px;font-size:12px;color:${col};font-weight:800;">→ 명렬표 보기</div>
@@ -915,11 +1042,6 @@ function renderSlotContent(){
     h += `</div></div>`;
   });
   container.innerHTML = h;
-  container.querySelectorAll('.card.clickable').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      jumpToRoster(card.dataset.grade, card.dataset.slot, card.dataset.subj);
-    });
-  });
 }
 
 /* ============================================================
@@ -998,7 +1120,8 @@ function renderClassContent(){
           day: t.day, period: t.period,
           subject: `선택 (슬롯 ${slot})`,
           teacher: '',
-          slot
+          slot,
+          navOverride: 'slot'  // 과목명이 실제가 아니므로 슬롯 탭으로
         });
       });
   });
@@ -1020,7 +1143,7 @@ function renderClassContent(){
         ${sts.map(s=>{
           const n = Object.keys(s.subjects).length;
           return `
-            <div class="card clickable" data-id="${escapeHtml(s.id)}" style="padding:14px;border-left:4px solid var(--accent);">
+            <div class="card clickable" data-nav="student" data-arg1="${escapeHtml(s.id)}" style="padding:14px;border-left:4px solid var(--accent);">
               <div style="font-size:16px;font-weight:900;margin-bottom:4px;">${escapeHtml(s.name)}</div>
               <div style="font-size:12px;color:var(--text-muted);font-weight:700;">${escapeHtml(s.id)} · 수강 ${n}과목</div>
             </div>`;
@@ -1028,12 +1151,6 @@ function renderClassContent(){
       </div>
     </div>`;
   host.innerHTML = h;
-  host.querySelectorAll('.card.clickable[data-id]').forEach(card=>{
-    card.addEventListener('click', ()=>{
-      switchTab('student');
-      selectStudent(card.dataset.id);
-    });
-  });
 }
 
 /* ============================================================
@@ -1142,7 +1259,7 @@ function generateRoster(){
     <div class="card" style="padding:0;overflow-x:auto;">
       <div class="print-header" style="text-align:center;margin-bottom:12px;padding-top:10px;">
         <h2 style="font-size:22px;font-weight:900;margin-bottom:6px;">📋 [${escapeHtml(g)}] ${escapeHtml(sj)} 출석부 (슬롯 ${escapeHtml(sl)})</h2>
-        <div style="font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:8px;">🧑‍🏫 ${escapeHtml(ci.teacher||'미정')} 선생님</div>
+        <div style="font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:8px;">🧑‍🏫 <span data-nav="teacher" data-arg1="${escapeHtml(ci.teacher||'')}">${escapeHtml(ci.teacher||'미정')}</span> 선생님</div>
         <div style="display:inline-flex;gap:12px;background:var(--surface-hover);padding:7px 18px;border-radius:12px;font-weight:700;color:var(--text-muted);font-size:13px;" class="no-print">
           <span>📍 ${escapeHtml(ci.room||'미정')}</span>
           <span style="color:var(--accent);">총 ${sts.length}명</span>
@@ -1150,7 +1267,11 @@ function generateRoster(){
       </div>
       <div class="breakdown no-print">
         <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">반별 분포:</span>
-        ${roomEntries.map(([room,cnt])=>`<span class="breakdown-item">${escapeHtml(room)} <strong>${cnt}명</strong></span>`).join('') || '<span style="color:var(--text-muted)">—</span>'}
+        ${roomEntries.map(([room,cnt])=>{
+          const bMatch = room.match(/(\d+)반/);
+          const bNum = bMatch ? bMatch[1] : '';
+          return `<span class="breakdown-item" data-nav="class" data-arg1="${escapeHtml(g)}" data-arg2="${bNum}">${escapeHtml(room)} <strong>${cnt}명</strong></span>`;
+        }).join('') || '<span style="color:var(--text-muted)">—</span>'}
       </div>
       <table class="data-table">
         <thead>
@@ -1167,7 +1288,7 @@ function generateRoster(){
       h += `<tr>
         <td style="font-size:12px;color:var(--text-muted);">${i+1}</td>
         <td style="font-size:12px;">${escapeHtml(s.id)}</td>
-        <td style="font-weight:900;font-size:14px;text-align:center;">${escapeHtml(s.name)}</td>`;
+        <td style="font-weight:900;font-size:14px;text-align:center;" data-nav="student" data-arg1="${escapeHtml(s.id)}">${escapeHtml(s.name)}</td>`;
       for(let j=0;j<cols;j++) h += `<td></td>`;
       h += `</tr>`;
     });
@@ -1239,6 +1360,13 @@ function renderTeacherTimetable(teacher){
       </div>
     </div>
     <div class="breakdown">
+      <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">담당 학급:</span>
+      ${classesTaught.map(key=>{
+        const [g,b] = key.split('-');
+        return `<span class="breakdown-item" data-nav="class" data-arg1="${escapeHtml(g)}" data-arg2="${escapeHtml(b)}">${escapeHtml(key)}반</span>`;
+      }).join('')}
+    </div>
+    <div class="breakdown">
       <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">과목:</span>
       ${subjects.map(s=>`<span class="breakdown-item">${escapeHtml(s)}</span>`).join('')}
     </div>
@@ -1300,7 +1428,14 @@ function doLocSearch(q, mode){
     allStudents.filter(s=>s.name.toLowerCase().includes(q) || s.id.includes(q)).forEach(s=>{
       Object.entries(s.subjects).forEach(([sj,sl])=>{
         const ci = findClassroom(s.grade, sl, sj) || {};
-        results.push({ key:`S|${s.id}|${sl}|${sj}`, badge:`👨‍🎓 ${s.name} (${s.id}·${s.grade})`, slot:sl, subj:sj, teacher:ci.teacher||'미정', room:ci.room||'미정', color:'var(--accent)' });
+        results.push({
+          key:`S|${s.id}|${sl}|${sj}`,
+          badge:`👨‍🎓 ${s.name} (${s.id}·${s.grade})`,
+          slot:sl, subj:sj,
+          teacher:ci.teacher||'미정', room:ci.room||'미정',
+          color:'var(--accent)',
+          _grade: s.grade, _studentId: s.id
+        });
       });
     });
   }
@@ -1315,7 +1450,14 @@ function doLocSearch(q, mode){
   }).forEach(c=>{
     const k = `C|${c.grade}|${c.slot}|${c.subject}`;
     if(!results.find(r=>r.key===k)){
-      results.push({ key:k, badge:`📚 [${c.grade}] 강좌 · ${c.count||0}명`, slot:c.slot, subj:c.subject, teacher:c.teacher||'미정', room:c.room||'미정', color:'var(--violet)' });
+      results.push({
+        key:k,
+        badge:`📚 [${c.grade}] 강좌 · ${c.count||0}명`,
+        slot:c.slot, subj:c.subject,
+        teacher:c.teacher||'미정', room:c.room||'미정',
+        color:'var(--violet)',
+        _grade: c.grade
+      });
     }
   });
 
@@ -1346,7 +1488,8 @@ function doLocSearch(q, mode){
       subj: c.subject,
       teacher: c.teacher || '미정',
       room: '교실에서 수업',
-      color: '#10b981'
+      color: '#10b981',
+      _grade: c.grade, _ban: c.ban
     });
   });
 
@@ -1357,18 +1500,34 @@ function doLocSearch(q, mode){
 
   let h = `<div style="grid-column:1/-1;font-weight:800;margin-bottom:6px;">총 <span style="color:var(--accent);">${results.length}건</span></div>`;
   results.forEach(r=>{
-    const slotLabel = r.slot === '공통'
+    const isCommon = r.slot === '공통';
+    const slotLabel = isCommon
       ? `<span class="badge" style="font-size:12px;background:#d1fae5;color:#065f46;border-color:#6ee7b7;">공통</span>`
-      : `<span class="badge" style="font-size:12px;">슬롯 ${escapeHtml(r.slot)}</span>`;
+      : `<span class="badge" style="font-size:12px;" data-nav="slot" data-arg1="${escapeHtml(r.grade||'')}" data-arg2="${escapeHtml(r.slot)}">슬롯 ${escapeHtml(r.slot)}</span>`;
     const roomLine = r.room === '교실에서 수업'
       ? `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 각 반 교실</div>`
       : `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 ${escapeHtml(r.room)}</div>`;
+
+    // 과목 네비: 선택과목은 명렬표, 공통은 해당 반별 조회
+    let subjAttrs = '';
+    if(isCommon && r._grade && r._ban){
+      subjAttrs = `data-nav="class" data-arg1="${escapeHtml(r._grade)}" data-arg2="${escapeHtml(r._ban)}"`;
+    } else if(!isCommon && r._grade && r.slot){
+      subjAttrs = `data-nav="roster" data-arg1="${escapeHtml(r._grade)}" data-arg2="${escapeHtml(r.slot)}" data-arg3="${escapeHtml(r.subj)}"`;
+    }
+    // 학생 배지 네비
+    let badgeAttrs = '';
+    if(r._studentId) badgeAttrs = `data-nav="student" data-arg1="${escapeHtml(r._studentId)}"`;
+    else if(isCommon && r._grade && r._ban) badgeAttrs = `data-nav="class" data-arg1="${escapeHtml(r._grade)}" data-arg2="${escapeHtml(r._ban)}"`;
+
     h += `
       <div class="card" style="border-top:4px solid ${r.color};padding:18px;">
-        <div style="font-size:12px;font-weight:800;color:${r.color};margin-bottom:6px;">${escapeHtml(r.badge)}</div>
-        <div class="card-title" style="margin-bottom:10px;font-size:17px;">${escapeHtml(r.subj)} ${slotLabel}</div>
+        <div style="font-size:12px;font-weight:800;color:${r.color};margin-bottom:6px;" ${badgeAttrs}>${escapeHtml(r.badge)}</div>
+        <div class="card-title" style="margin-bottom:10px;font-size:17px;">
+          <span ${subjAttrs}>${escapeHtml(r.subj)}</span> ${slotLabel}
+        </div>
         <div style="font-size:13px;color:var(--text-muted);font-weight:600;line-height:1.8;">
-          <div>🧑‍🏫 <strong style="color:var(--text-main);">${escapeHtml(r.teacher)}</strong></div>
+          <div>🧑‍🏫 <strong style="color:var(--text-main);" data-nav="teacher" data-arg1="${escapeHtml(r.teacher)}">${escapeHtml(r.teacher)}</strong></div>
           ${roomLine}
         </div>
       </div>`;
