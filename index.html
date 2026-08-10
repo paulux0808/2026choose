@@ -255,241 +255,248 @@ const renderedTabs = new Set();
 /* ============================================================
    파싱 (원본 유지)
    ============================================================ */
+function getGvizValue(row, index) {
+  const cell = row?.c?.[index];
+  if (!cell || cell.v === null || cell.v === undefined) return '';
+  return String(cell.f ?? cell.v).trim();
+}
+
+function normalizeSlot(value) {
+  return String(value || '').trim().replace(/\s+/g, '').toUpperCase();
+}
+
+function normalizeSubject(value) {
+  return String(value || '').trim().replace(/\s+/g, '');
+}
+
+function normalizeRoom(value, gradeStr) {
+  const room = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!room) return '';
+  let match = room.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (match) return match[1] + '학년 ' + parseInt(match[2], 10) + '반';
+  match = room.match(/^(\d+)\s*학년\s*(\d+)\s*반$/);
+  if (match) return match[1] + '학년 ' + parseInt(match[2], 10) + '반';
+  match = room.match(/^(\d+)\s*반$/);
+  const grade = String(gradeStr || '').match(/(\d+)/);
+  if (match && grade) return grade[1] + '학년 ' + parseInt(match[1], 10) + '반';
+  return room;
+}
+
 function parseStudentSheet(data, gradeStr) {
-    if (!data?.table) return;
-    const cols = data.table.cols || [];
-    const rows = data.table.rows || [];
-    const headers = cols.map(c => (c.label || '').trim());
-
-    let idIdx = headers.findIndex(h => h.includes('학번'));
-    let nameIdx = headers.findIndex(h => h.includes('이름') || h.includes('성명'));
-    if (idIdx === -1) idIdx = 0;
-    if (nameIdx === -1) nameIdx = 1;
-
-    const subjectCols = [];
-    headers.forEach((h, j) => {
-        if (j === idIdx || j === nameIdx || !h) return;
-        subjectCols.push({ idx: j, name: h });
-    });
-
-    for (const row of rows) {
-        if (!row.c) continue;
-        const idCell = row.c[idIdx];
-        const nameCell = row.c[nameIdx];
-        const id = idCell ? String(idCell.f || idCell.v || '').trim() : '';
-        const name = nameCell ? String(nameCell.v || '').trim() : '';
-        if (!id || !name) continue;
-
-        let homeroom = '미정';
-        const m = id.match(/^(\d)(\d{2})(\d{2})$/);
-        if (m) homeroom = `${m[1]}학년 ${parseInt(m[2])}반`;
-
-        const subjects = {};
-        for (const sc of subjectCols) {
-            const cell = row.c[sc.idx];
-            if (!cell || cell.v === null || cell.v === undefined) continue;
-            const val = String(cell.v).trim();
-            if (val && val !== '-' && val !== '0') {
-                subjects[sc.name] = val;
-            }
-        }
-        if (Object.keys(subjects).length > 0) {
-            allStudents.push({ id, name, grade: gradeStr, homeroom, subjects });
-        }
-    }
-}
-
-function parseClassroomSheet(data, gradeStr) {
-    if (!data?.table) return;
-    const cols = data.table.cols || [];
-    const rows = data.table.rows || [];
-
-    const subjectMap = {};
-    for (let j = 2; j < cols.length; j++) {
-        const label = (cols[j].label || '').trim();
-        if (label) subjectMap[j] = label;
-    }
-
-    let currentSlot = '';
-
-    for (const row of rows) {
-        if (!row.c) continue;
-        const getVal = (idx) => {
-            const cell = row.c[idx];
-            if (!cell || cell.v === null || cell.v === undefined) return '';
-            return String(cell.f || cell.v).trim();
-        };
-
-        const colA = getVal(0);
-        const colB = getVal(1);
-
-        if (colB === '학생수' && colA) {
-            currentSlot = colA;
-            for (let j = 2; j < row.c.length; j++) {
-                const cnt = parseInt(getVal(j));
-                const subj = subjectMap[j];
-                if (!isNaN(cnt) && cnt > 0 && subj) {
-                    classroomData.push({ grade: gradeStr, slot: currentSlot, subject: subj, teacher: '', room: '', count: cnt });
-                }
-            }
-            continue;
-        }
-
-        if (colB === '담당교사' && currentSlot) {
-            for (let j = 2; j < row.c.length; j++) {
-                const teacher = getVal(j);
-                const subj = subjectMap[j];
-                if (teacher && subj) {
-                    const e = classroomData.find(x => x.grade === gradeStr && x.slot === currentSlot && x.subject === subj);
-                    if (e) e.teacher = teacher;
-                }
-            }
-            continue;
-        }
-
-        if (colB === '교실' && currentSlot) {
-            for (let j = 2; j < row.c.length; j++) {
-                const room = getVal(j);
-                const subj = subjectMap[j];
-                if (room && subj) {
-                    const e = classroomData.find(x => x.grade === gradeStr && x.slot === currentSlot && x.subject === subj);
-                    if (e) e.room = room;
-                }
-            }
-            continue;
-        }
-    }
-}
-
-window.cb_g2_stu = function(d) { try { parseStudentSheet(d, '2학년'); } catch(e) { console.error(e); } checkReady(); };
-window.cb_g3_stu = function(d) { try { parseStudentSheet(d, '3학년'); } catch(e) { console.error(e); } checkReady(); };
-window.cb_g2_cls = function(d) { try { parseClassroomSheet(d, '2학년'); } catch(e) { console.error(e); } checkReady(); };
-window.cb_g3_cls = function(d) { try { parseClassroomSheet(d, '3학년'); } catch(e) { console.error(e); } checkReady(); };
-
-/* 반별시간표: 학년·반·요일·교시·과목·교사·슬롯 */
-function parseSchedule(data){
-  if(!data?.table) return;
+  if (!data?.table) return;
   const cols = data.table.cols || [];
   const rows = data.table.rows || [];
-  const labels = cols.map(c => (c.label || '').trim());
+  const headers = cols.map(column => String(column.label || '').trim());
+  let idIndex = headers.findIndex(header => header.includes('학번'));
+  let nameIndex = headers.findIndex(header => header.includes('이름') || header.includes('성명'));
+  if (idIndex === -1) idIndex = 0;
+  if (nameIndex === -1) nameIndex = 1;
 
-  const idx = name => labels.findIndex(l => l === name);
-  const iGrade   = idx('학년');
-  const iBan     = idx('반');
-  const iDay     = idx('요일');
-  const iPeriod  = idx('교시');
-  const iSubject = idx('과목');
-  const iTeacher = idx('교사');
-  const iSlot    = idx('슬롯');
+  const subjectCols = headers
+    .map((name, index) => ({ name, index }))
+    .filter(item => item.index !== idIndex && item.index !== nameIndex && item.name);
 
-  for(const row of rows){
-    if(!row.c) continue;
-    const getV = i => {
-      if(i < 0) return '';
-      const c = row.c[i];
-      if(!c || c.v === null || c.v === undefined) return '';
-      return String(c.f || c.v).trim();
-    };
-    const grade   = parseInt(getV(iGrade));
-    const ban     = parseInt(getV(iBan));
-    const day     = getV(iDay);
-    const period  = parseInt(getV(iPeriod));
-    const subject = getV(iSubject);
-    const teacher = getV(iTeacher);
-    const slot    = getV(iSlot);
-    if(!grade || !ban || !day || !period || !subject) continue;
-    scheduleData.push({ grade, ban, day, period, subject, teacher, slot });
+  for (const row of rows) {
+    const id = getGvizValue(row, idIndex);
+    const name = getGvizValue(row, nameIndex);
+    if (!id || !name) continue;
+    let homeroom = '미정';
+    const matched = id.match(/^(\d)(\d{2})(\d{2})$/);
+    if (matched) homeroom = matched[1] + '학년 ' + parseInt(matched[2], 10) + '반';
+
+    const subjects = {};
+    for (const subject of subjectCols) {
+      const slot = getGvizValue(row, subject.index);
+      if (slot && slot !== '-' && slot !== '0') subjects[subject.name] = slot;
+    }
+    if (Object.keys(subjects).length) allStudents.push({ id, name, grade: gradeStr, homeroom, subjects });
   }
 }
 
-/* 슬롯시간매핑: 학년·슬롯·요일·교시 */
-function parseSlotTimes(data){
-  if(!data?.table) return;
+function parseSchedule(data) {
+  if (!data?.table) return;
   const cols = data.table.cols || [];
   const rows = data.table.rows || [];
-  const labels = cols.map(c => (c.label || '').trim());
-  const idx = name => labels.findIndex(l => l === name);
-  const iGrade  = idx('학년');
-  const iSlot   = idx('슬롯');
-  const iDay    = idx('요일');
-  const iPeriod = idx('교시');
+  const labels = cols.map(column => String(column.label || '').trim());
+  const indexOf = name => labels.findIndex(label => label === name);
+  const gradeIndex = indexOf('학년');
+  const banIndex = indexOf('반');
+  const dayIndex = indexOf('요일');
+  const periodIndex = indexOf('교시');
+  const subjectIndex = indexOf('과목');
+  const teacherIndex = indexOf('교사');
+  const slotIndex = indexOf('슬롯');
 
-  for(const row of rows){
-    if(!row.c) continue;
-    const getV = i => {
-      if(i < 0) return '';
-      const c = row.c[i];
-      if(!c || c.v === null || c.v === undefined) return '';
-      return String(c.f || c.v).trim();
+  for (const row of rows) {
+    const grade = parseInt(getGvizValue(row, gradeIndex), 10);
+    const ban = parseInt(getGvizValue(row, banIndex), 10);
+    const day = getGvizValue(row, dayIndex);
+    const period = parseInt(getGvizValue(row, periodIndex), 10);
+    const subject = getGvizValue(row, subjectIndex);
+    const teacher = getGvizValue(row, teacherIndex);
+    const slot = getGvizValue(row, slotIndex);
+    if (grade && ban && day && period && subject) scheduleData.push({ grade, ban, day, period, subject, teacher, slot });
+  }
+}
+
+function parseSlotTimes(data) {
+  if (!data?.table) return;
+  const cols = data.table.cols || [];
+  const rows = data.table.rows || [];
+  const labels = cols.map(column => String(column.label || '').trim());
+  const indexOf = name => labels.findIndex(label => label === name);
+  const gradeIndex = indexOf('학년');
+  const slotIndex = indexOf('슬롯');
+  const dayIndex = indexOf('요일');
+  const periodIndex = indexOf('교시');
+
+  for (const row of rows) {
+    const grade = parseInt(getGvizValue(row, gradeIndex), 10);
+    const slot = getGvizValue(row, slotIndex);
+    const day = getGvizValue(row, dayIndex);
+    const period = parseInt(getGvizValue(row, periodIndex), 10);
+    if (grade && slot && day && period) slotTimeMap.push({ grade, slot, day, period });
+  }
+}
+
+function ensureClassroom(grade, slot, subject) {
+  let course = classroomData.find(item => item.grade === grade && item.slot === slot && item.subject === subject);
+  if (!course) {
+    course = { grade, slot, subject, teacher: '', room: '', count: 0 };
+    classroomData.push(course);
+  }
+  return course;
+}
+
+function loadGvizTable({ gid, range = '', headers = true }) {
+  return new Promise((resolve, reject) => {
+    const callback = '__choiceDashboard_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => finish(new Error('시트 응답 시간이 초과되었습니다.')), 20000);
+    const finish = result => {
+      clearTimeout(timeout);
+      delete window[callback];
+      script.remove();
+      result instanceof Error ? reject(result) : resolve(result);
     };
-    const grade = parseInt(getV(iGrade));
-    const slot = getV(iSlot);
-    const day = getV(iDay);
-    const period = parseInt(getV(iPeriod));
-    if(!grade || !slot || !day || !period) continue;
-    slotTimeMap.push({ grade, slot, day, period });
-  }
-}
-
-window.cb_schedule  = function(d) { try { parseSchedule(d); } catch(e) { console.error(e); } checkReady(); };
-window.cb_slotmap   = function(d) { try { parseSlotTimes(d); } catch(e) { console.error(e); } checkReady(); };
-
-/* ============================================================
-   데이터 로드
-   ============================================================ */
-function checkReady(){
-  dataLoaded++;
-  if(dataLoaded >= TOTAL){
-    clearTimeout(errorTimeout);
-    lastLoadTime = Date.now();
-    document.getElementById('loadingOverlay').style.opacity = '0';
-    setTimeout(()=>document.getElementById('loadingOverlay').style.display='none', 300);
-    allStudents.sort((a,b)=>a.id.localeCompare(b.id));
-    console.log(`✅ 학생 ${allStudents.length}명, 강좌 ${classroomData.length}건`);
-    updateStatsBadge();
-    updateSyncTime();
-    renderedTabs.clear();
-    switchTab('student');
-  }
-}
-
-function fetchAllData(){
-  document.getElementById('loadingMsg').innerHTML = '스프레드시트에서 데이터를 불러오는 중...';
-  document.getElementById('loadingOverlay').style.display = 'flex';
-  document.getElementById('loadingOverlay').style.opacity = '1';
-
-  errorTimeout = setTimeout(()=>{
-    if(dataLoaded < TOTAL){
-      document.getElementById('loadingMsg').innerHTML =
-        `<span style="color:var(--danger);">데이터 불러오기 실패</span><br><br>`+
-        `<span style="font-size:14px;font-weight:600;color:var(--text-muted);">시트 권한을 확인하거나 새로고침 해주세요.</span>`;
-    }
-  }, 20000);
-
-  [
-    { gid:'0',          cb:'cb_g2_stu',  hdr:true },
-    { gid:'1935968761', cb:'cb_g3_stu',  hdr:true },
-    { gid:'606989081',  cb:'cb_g2_cls',  hdr:false },
-    { gid:'44867740',   cb:'cb_g3_cls',  hdr:false },
-    { gid:'1926478023', cb:'cb_schedule', hdr:true },
-    { gid:'863995751',  cb:'cb_slotmap',  hdr:true },
-  ].forEach(ep => {
-    const s = document.createElement('script');
-    s.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${ep.cb}&gid=${ep.gid}${ep.hdr?'&headers=1':''}&_=${Date.now()}`;
-    document.body.appendChild(s);
+    window[callback] = data => finish(data);
+    script.onerror = () => finish(new Error('시트 데이터를 읽지 못했습니다.'));
+    let url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json;responseHandler:' + callback + '&gid=' + gid;
+    if (range) url += '&range=' + encodeURIComponent(range);
+    url += '&headers=' + (headers ? '1' : '0') + '&_=' + Date.now();
+    script.src = url;
+    document.body.appendChild(script);
   });
 }
 
-function reloadData(){
+async function loadClassroomSheet(gradeStr, gid, lastRow, lastColumn) {
+  const [headerData, metaData] = await Promise.all([
+    loadGvizTable({ gid, range: 'A1:' + lastColumn + '1', headers: false }),
+    loadGvizTable({ gid, range: 'A2:B' + lastRow, headers: false }),
+  ]);
+  const headerRow = (headerData.table?.rows || [])[0];
+  const headers = (headerRow?.c || []).map((_, index) => getGvizValue(headerRow, index));
+  const groups = [];
+  let slot = '';
+  for (let index = 0; index < (metaData.table?.rows || []).length; index++) {
+    const row = metaData.table.rows[index];
+    const foundSlot = getGvizValue(row, 0);
+    const rowType = getGvizValue(row, 1);
+    if (foundSlot) slot = foundSlot;
+    if (slot && rowType === '학생수') groups.push({ slot, rowNumber: index + 2 });
+  }
+
+  const courseData = await Promise.all(groups.map(group =>
+    loadGvizTable({ gid, range: 'C' + (group.rowNumber + 1) + ':' + lastColumn + (group.rowNumber + 2), headers: false })
+      .then(data => ({ group, data })),
+  ));
+
+  for (const item of courseData) {
+    const teacherRow = (item.data.table?.rows || [])[0];
+    const roomRow = (item.data.table?.rows || [])[1];
+    const fieldCount = Math.max(teacherRow?.c?.length || 0, roomRow?.c?.length || 0);
+    for (let field = 0; field < fieldCount; field++) {
+      const subject = headers[field + 2];
+      const teacher = getGvizValue(teacherRow, field);
+      const room = normalizeRoom(getGvizValue(roomRow, field), gradeStr);
+      if (!subject || (!teacher && !room)) continue;
+      const course = ensureClassroom(gradeStr, item.group.slot, subject);
+      if (teacher) course.teacher = teacher;
+      if (room) course.room = room;
+    }
+  }
+}
+
+function calculateClassroomCounts() {
+  const counts = new Map();
+  for (const student of allStudents) {
+    for (const [subject, slot] of Object.entries(student.subjects)) {
+      const key = [student.grade, normalizeSlot(slot), normalizeSubject(subject)].join('\u0000');
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+  for (const course of classroomData) {
+    const key = [course.grade, normalizeSlot(course.slot), normalizeSubject(course.subject)].join('\u0000');
+    course.count = counts.get(key) || 0;
+  }
+}
+
+function checkReady() {
+  if (dataLoaded < TOTAL) return;
+  calculateClassroomCounts();
+  lastLoadTime = Date.now();
+  document.getElementById('loadingOverlay').style.opacity = '0';
+  setTimeout(() => { document.getElementById('loadingOverlay').style.display = 'none'; }, 300);
+  allStudents.sort((a, b) => a.id.localeCompare(b.id));
+  updateStatsBadge();
+  updateSyncTime();
+  renderedTabs.clear();
+  switchTab('student');
+}
+
+let loadVersion = 0;
+
+async function fetchAllData() {
+  const version = ++loadVersion;
+  document.getElementById('loadingMsg').textContent = '스프레드시트에서 데이터를 불러오는 중…';
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('loadingOverlay').style.opacity = '1';
+  try {
+    const [secondStudents, thirdStudents, schedule, slotMap] = await Promise.all([
+      loadGvizTable({ gid: '0' }),
+      loadGvizTable({ gid: '1935968761' }),
+      loadGvizTable({ gid: '1926478023' }),
+      loadGvizTable({ gid: '863995751' }),
+    ]);
+    if (version !== loadVersion) return;
+    parseStudentSheet(secondStudents, '2학년');
+    parseStudentSheet(thirdStudents, '3학년');
+    parseSchedule(schedule);
+    parseSlotTimes(slotMap);
+    await Promise.all([
+      loadClassroomSheet('2학년', '606989081', 16, 'P'),
+      loadClassroomSheet('3학년', '44867740', 40, 'AF'),
+    ]);
+    if (version !== loadVersion) return;
+    dataLoaded = TOTAL;
+    checkReady();
+  } catch (error) {
+    if (version !== loadVersion) return;
+    console.error(error);
+    document.getElementById('loadingMsg').innerHTML = '<span style="color:var(--danger);">데이터를 불러오지 못했습니다.</span><br><br><span style="font-size:14px;font-weight:600;color:var(--text-muted);">' + escapeHtml(error.message || '시트 공유 권한과 네트워크 연결을 확인해 주세요.') + '</span>';
+  }
+}
+
+function reloadData() {
   allStudents = [];
   classroomData = [];
   scheduleData = [];
   slotTimeMap = [];
   dataLoaded = 0;
   renderedTabs.clear();
-  ['student','slot','class','roster','teacher','location'].forEach(id=>{
-    const el = document.getElementById('tab_'+id);
-    if(el) el.innerHTML = '';
+  ['student', 'slot', 'class', 'roster', 'teacher', 'location'].forEach(id => {
+    const element = document.getElementById('tab_' + id);
+    if (element) element.innerHTML = '';
   });
   fetchAllData();
 }
