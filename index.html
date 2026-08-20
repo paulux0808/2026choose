@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎓 학생 선택과목 종합 대시보드</title>
+<title>선택과목 업무 대시보드 V3</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
 :root{
-  --bg:#f8fafc; --surface:#fff; --surface-hover:#f1f5f9;
-  --text-main:#0f172a; --text-muted:#64748b; --border:#e2e8f0;
-  --accent:#3b82f6; --accent-glow:rgba(59,130,246,0.3);
-  --live:#10b981; --violet:#7c3aed; --danger:#ef4444;
+  --bg:#f6f7f9; --surface:#fff; --surface-hover:#eef1f4;
+  --text-main:#171a1f; --text-muted:#5f6770; --border:#c9cfd6; --border-soft:#e7eaee;
+  --accent:#228be6; --accent-soft:#e7f5ff; --accent-glow:rgba(34,139,230,.14);
+  --live:#2f9e44; --violet:#7950f2; --danger:#c92a2a;
+  --shadow:0 12px 30px rgba(0,0,0,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-main);overflow-y:scroll}
@@ -155,7 +156,431 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
   .card-title{font-size:17px}
 }
 
+/* ============================================================
+   교사용 업무 UI 초안
+   ============================================================ */
+html{background:var(--bg)}
+body{min-height:100%;background:var(--bg);color:var(--text-main);font-size:14px;font-weight:400}
+button,input,select{font:inherit}
+
+.header-wrapper{
+  position:sticky;top:0;z-index:500;padding:0;background:var(--surface);
+  border-bottom:1px solid var(--border-soft);backdrop-filter:none;box-shadow:none
+}
+.header{
+  width:100%;max-width:1680px;min-height:52px;margin:0 auto;padding:0 20px;
+  display:grid;grid-template-columns:auto minmax(320px,1fr) auto;gap:24px;align-items:center;flex-wrap:nowrap
+}
+.brand-block{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.brand-title{font-size:15px;font-weight:750;letter-spacing:-.25px}
+.teacher-badge{padding:2px 6px;border:1px solid var(--border);border-radius:4px;color:var(--text-muted);font-size:10.5px;font-weight:650}
+.primary-nav{height:52px;display:flex;align-items:stretch;justify-content:center;gap:22px}
+.primary-tab{
+  position:relative;min-height:52px;padding:0 2px;border:0;background:transparent;color:var(--text-muted);
+  font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap
+}
+.primary-tab:hover{color:var(--text-main)}
+.primary-tab.active{color:var(--accent)}
+.primary-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent)}
+.primary-tab:focus-visible,.subnav-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.header-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.header-meta{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:11.5px;font-weight:500;flex-wrap:nowrap}
+.stats-badge{padding:3px 7px;border:0;border-radius:5px;background:var(--bg);font-size:11.5px;font-weight:550}
+.sync-time{font-size:11px;color:var(--text-muted)}
+.icon-btn{
+  width:auto;height:32px;min-width:32px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;
+  background:var(--surface);color:var(--text-main);font-size:12px;font-weight:600
+}
+.icon-btn:hover{background:var(--surface-hover);transform:none;border-color:var(--border)}
+
+.subnav-shell{background:color-mix(in srgb,var(--bg) 96%,transparent);border-top:1px solid var(--border-soft)}
+.subnav-inner{
+  width:100%;max-width:1680px;min-height:44px;margin:0 auto;padding:6px 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px
+}
+.view-context{display:flex;align-items:center;gap:8px;min-width:0}
+.view-group-label{font-size:13px;font-weight:700;white-space:nowrap}
+.view-description{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.controls{display:flex;gap:3px;padding:3px;border:1px solid var(--border);border-radius:7px;background:var(--surface);box-shadow:none;flex-wrap:nowrap}
+.subnav-btn{
+  min-height:29px;padding:4px 9px;border:0;border-radius:5px;background:transparent;color:var(--text-muted);
+  font-size:12px;font-weight:550;cursor:pointer;white-space:nowrap
+}
+.subnav-btn:hover{background:var(--surface-hover);color:var(--text-main)}
+.subnav-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.subnav-btn[hidden]{display:none}
+.subnav-shell.roster-mode .controls{display:none}
+
+.container{width:100%;max-width:1680px;margin:0 auto;padding:16px 20px 36px}
+.tab-pane>div[style*="text-align:center"]{text-align:left!important;margin-bottom:14px!important}
+.tab-pane>div[style*="text-align:center"]>h2,
+.tab-pane h2{margin:0 0 10px!important;font-size:18px!important;font-weight:700!important;letter-spacing:-.2px}
+.tab-pane>div[style*="text-align:center"]>p{margin:0 0 10px!important;font-size:12px!important;font-weight:450!important}
+
+.search-wrapper{width:100%;max-width:560px;margin:0 0 18px}
+.search-input{height:38px;padding:7px 11px 7px 36px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px;font-weight:450;box-shadow:none}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+.search-icon{left:11px;font-size:15px}
+.autocomplete-list{top:calc(100% + 4px);border:1px solid var(--border);border-radius:7px;box-shadow:0 10px 25px rgba(0,0,0,.1)}
+.autocomplete-item{padding:9px 11px;border-bottom:1px solid var(--border-soft);font-size:13px;font-weight:500}
+
+.grid-layout{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.card{padding:12px;border:1px solid var(--border-soft);border-radius:7px;background:var(--surface);box-shadow:none;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+.card:hover{transform:none;border-color:var(--border);box-shadow:none}
+.card.clickable:hover{transform:translateY(-1px);border-color:var(--accent);box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.card-header{margin-bottom:8px}
+.card-title{font-size:15px!important;font-weight:650!important;letter-spacing:-.1px}
+.badge{padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text-main);font-size:11px;font-weight:600}
+
+.slot-subtabs{justify-content:flex-start;gap:3px;margin-bottom:10px;padding:3px;border:1px solid var(--border);border-radius:7px;background:var(--surface);width:max-content}
+.btn,.btn.sub{min-height:30px;padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-main);font-size:12px;font-weight:600;box-shadow:none}
+.btn:hover,.btn.sub:hover{background:var(--surface-hover)}
+.btn.active,.btn.sub.active{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:none}
+.slot-subtabs .btn{border:0;background:transparent;color:var(--text-muted)}
+.slot-subtabs .btn.active{background:var(--accent-soft);color:var(--accent)}
+.slot-group{margin-bottom:20px}
+.slot-group-header{gap:8px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
+.slot-label{padding:3px 8px;border-radius:5px;font-size:13px;font-weight:700}
+.slot-summary{font-size:11.5px;font-weight:550}
+
+.chip-row{justify-content:flex-start;gap:4px;margin-bottom:12px}
+.chip{min-height:30px;padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12px;font-weight:550}
+.chip:hover{background:var(--surface-hover)}
+.chip.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.filter-bar{gap:8px;align-items:flex-end;margin-bottom:10px}
+.filter-bar label{margin-bottom:4px;font-size:11.5px;font-weight:600;color:var(--text-muted)}
+.filter-bar select,.filter-bar input[type=text]{height:36px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:12.5px;font-weight:500}
+.filter-bar select:focus,.filter-bar input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+
+.tt-section-title{margin:16px 0 7px;font-size:14px;font-weight:650}
+.timetable{border-spacing:2px;margin-bottom:18px}
+.timetable thead th{padding:6px 4px;border:1px solid var(--border-soft);border-radius:5px;background:var(--surface-hover);font-size:12px;font-weight:600;color:var(--text-muted)}
+.timetable thead th.day-header{background:var(--surface-hover);font-size:12px}
+.timetable td.period-label{width:42px;padding:6px 4px;border:1px solid var(--border-soft);border-radius:5px;font-size:11.5px;font-weight:600}
+.tt-cell{height:62px;min-height:62px;padding:6px;border:1px solid var(--border-soft);border-radius:5px;font-size:12px;gap:2px}
+.tt-cell.clickable:hover{transform:none;box-shadow:none;border-color:var(--accent)}
+.tt-cell .tt-subj{font-size:12.5px;font-weight:600}
+.tt-cell .tt-sub{font-size:10.5px;font-weight:450}
+.tt-cell .tt-slot-badge{font-size:9.5px;font-weight:650}
+.tt-room{color:var(--accent);font-weight:600}
+.teacher-separator{color:var(--text-muted);font-weight:400}
+
+.data-table{border:1px solid var(--border-soft);border-radius:6px;box-shadow:none}
+.data-table th,.data-table td{padding:7px;border:1px solid var(--border-soft)}
+.data-table th{background:var(--surface-hover);font-weight:600}
+.data-table td{font-size:12.5px;font-weight:450}
+.compact-table-wrap{overflow-x:auto;border:1px solid var(--border-soft);border-radius:6px;background:var(--surface)}
+.compact-table{width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed;background:var(--surface)}
+.compact-table th{position:static;padding:7px 9px;border:0;border-bottom:1px solid var(--border);background:var(--surface-hover);color:var(--text-muted);font-size:11.5px;font-weight:600;text-align:left;box-shadow:none}
+.compact-table td{padding:9px;border:0;border-bottom:1px solid var(--border-soft);color:var(--text-main);font-size:12.5px;font-weight:450;text-align:left;vertical-align:middle}
+.compact-table tbody tr:last-child td{border-bottom:0}
+.compact-table tbody tr[data-nav]{cursor:pointer}
+.compact-table tbody tr[data-nav]:hover{background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.compact-table .col-slot{width:78px}.compact-table .col-person{width:120px}.compact-table .col-room{width:180px}.compact-table .col-count{width:88px;text-align:right}
+.compact-table .subject-cell{font-weight:650}
+.compact-table .muted-cell{color:var(--text-muted)}
+.compact-table .action-cell{width:96px;text-align:right;color:var(--accent);font-weight:600}
+.slot-token{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:2px 6px;border:1px solid color-mix(in srgb,var(--slot-color) 55%,#adb5bd);border-radius:4px;background:color-mix(in srgb,var(--slot-color) 12%,#fff);color:var(--text-main);font-size:11px;font-weight:650}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 7px}
+.section-head-title{font-size:14px;font-weight:650}
+.section-head-meta{font-size:11.5px;color:var(--text-muted);font-weight:500}
+.view-filter-row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:0}
+.view-filter-row .slot-subtabs,.view-filter-row .chip-row,.view-filter-row .filter-bar{margin:0}
+.roster-controls{margin-bottom:10px;padding:10px;border:1px solid var(--border-soft);border-radius:7px;background:var(--surface)}
+.breakdown{gap:5px;margin:8px 0 12px;padding:8px;border:1px solid var(--border-soft);border-radius:6px;background:var(--bg)}
+.breakdown-item{padding:3px 7px;border:1px solid var(--border);border-radius:5px;background:var(--surface);font-size:11.5px;font-weight:550}
+.dist-grid{gap:6px;margin-top:9px}
+.dist-cell{padding:7px 9px;border:1px solid var(--border-soft);border-radius:5px;background:var(--bg);font-size:11.5px;font-weight:500}
+
+.entity-summary{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 14px;border:1px solid var(--border-soft);border-radius:7px;background:var(--surface)}
+.entity-avatar{width:38px;height:38px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
+.entity-name{font-size:17px;font-weight:700}
+.entity-meta{margin-top:3px;color:var(--text-muted);font-size:11.5px;font-weight:500}
+.empty-state{min-height:130px;display:grid;place-items:center;padding:24px;border:1px dashed var(--border);border-radius:8px;background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:500;text-align:center}
+.loading-overlay{background:rgba(246,247,249,.94);backdrop-filter:blur(4px)}
+.spinner{border-color:var(--border-soft);border-top-color:var(--accent)}
+
+@media(max-width:1000px){
+  .header{grid-template-columns:auto 1fr auto;gap:14px;padding:0 14px}
+  .primary-nav{gap:13px}
+  .stats-badge{display:none}
+  .subnav-inner{padding-left:14px;padding-right:14px}
+  .container{padding-left:14px;padding-right:14px}
+}
+@media(max-width:850px){
+  .header{min-height:auto;padding:8px 10px;grid-template-columns:minmax(0,1fr) auto;gap:7px 8px}
+  .brand-block{grid-column:1;grid-row:1}
+  .header-tools{grid-column:2;grid-row:1}
+  .header-meta .sync-time{display:none}
+  .primary-nav{grid-column:1/-1;grid-row:2;height:38px;display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:3px;padding:3px;border:1px solid var(--border);border-radius:8px;background:var(--bg)}
+  .primary-tab{min-height:30px;border-radius:5px;font-size:12px}
+  .primary-tab.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .primary-tab.active::after{display:none}
+  .subnav-inner{min-height:42px;padding:5px 10px;display:block}
+  .view-context{display:none}
+  .controls{width:100%;overflow-x:auto}
+  .subnav-btn{flex:1}
+  .subnav-shell.roster-mode{display:none}
+  .container{padding:10px 10px 82px}
+  .grid-layout{grid-template-columns:1fr}
+  .search-wrapper{max-width:none}
+  .tab-pane>div[style*="text-align:center"]{margin-bottom:10px!important}
+  .filter-bar{align-items:stretch}
+  .filter-bar>div{flex:1;min-width:145px!important}
+  .entity-summary{padding:10px}
+}
+@media(max-width:640px){
+  .brand-title{font-size:14px}
+  .teacher-badge{display:none}
+  .header-tools{gap:4px}
+  .header-meta{display:none}
+  .primary-tab{font-size:11.5px}
+  .tt-day-tabs{padding:3px;border:1px solid var(--border);border-radius:7px;box-shadow:none}
+  .tt-day-tab{padding:7px 0;border-radius:5px;font-size:12px;font-weight:550}
+  .tt-day-tab.active{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+  .tt-row{padding:8px 9px;border:1px solid var(--border-soft);border-radius:6px}
+  .tt-row-subj{font-size:13px;font-weight:600}
+  .tt-row-teacher{font-size:11.5px;font-weight:500}
+  .compact-table{min-width:0;display:block;background:transparent}
+  .compact-table thead{display:none}
+  .compact-table tbody{display:grid;gap:6px}
+  .compact-table tr{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;padding:9px;border:1px solid var(--border-soft);border-radius:6px;background:var(--surface)}
+  .compact-table td{display:block;padding:0;border:0!important;font-size:12px;text-align:left!important;min-width:0}
+  .compact-table td::before{content:attr(data-label);display:block;margin-bottom:2px;color:var(--text-muted);font-size:10px;font-weight:550}
+  .compact-table .subject-cell{grid-column:1/-1;font-size:13.5px}
+  .compact-table .action-cell{grid-column:1/-1;width:auto;padding-top:5px;border-top:1px solid var(--border-soft)!important}
+  .compact-table .col-slot,.compact-table .col-person,.compact-table .col-room,.compact-table .col-count{width:auto}
+}
+
+/* ============================================================
+   V3 — 고밀도 교사용 업무 화면
+   ============================================================ */
+:root{
+  --bg:#f5f6f8;
+  --surface:#ffffff;
+  --surface-hover:#f0f2f5;
+  --text-main:#171a1f;
+  --text-muted:#66707a;
+  --border:#cbd1d8;
+  --border-soft:#e5e9ed;
+  --accent:#228be6;
+  --accent-soft:#e9f4ff;
+  --row-h:39px;
+  --header-h:52px;
+  --subnav-h:45px;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  display:flex;flex-direction:column;min-height:0;font-size:14px;line-height:1.45;font-weight:400;
+  letter-spacing:-.12px;font-feature-settings:"tnum" 1,"kern" 1;background:var(--bg)
+}
+.header-wrapper{position:relative;top:auto;flex:0 0 auto;z-index:500}
+.header{height:var(--header-h);min-height:var(--header-h);grid-template-columns:auto minmax(360px,1fr) auto;gap:26px;padding:0 18px}
+.brand-block{gap:8px}.brand-title{font-size:16px;font-weight:720}.teacher-badge{font-size:11px;font-weight:600}
+.primary-nav{height:var(--header-h);gap:24px}
+.primary-tab{min-height:var(--header-h);font-size:14px;font-weight:620;letter-spacing:-.1px}
+.header-tools{gap:7px}.header-meta{gap:6px;font-size:12px}.stats-badge{font-size:12px;font-weight:500}
+.icon-btn{height:32px;min-height:32px;padding:3px 9px;font-size:12px;font-weight:600}
+.subnav-shell{height:var(--subnav-h);background:var(--bg);border-top:0;border-bottom:1px solid var(--border-soft)}
+.subnav-inner{height:var(--subnav-h);min-height:var(--subnav-h);padding:6px 18px}
+.view-group-label{font-size:14px;font-weight:700}.view-description{font-size:12px;font-weight:450}
+.controls{padding:2px;border-color:var(--border-soft);border-radius:6px}
+.subnav-btn{height:30px;min-height:30px;padding:3px 12px;border-radius:4px;font-size:12.5px;font-weight:550}
+.subnav-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:650}
+
+.container{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;
+  max-width:1680px;padding:0 18px 28px
+}
+.tab-pane{padding-top:0}
+.view-filter-row,.roster-controls{
+  position:sticky;top:0;z-index:100;margin:0 -1px 10px;padding:8px 1px;
+  background:color-mix(in srgb,var(--bg) 96%,transparent);border:0;border-bottom:1px solid var(--border-soft);border-radius:0;
+  backdrop-filter:blur(10px)
+}
+.view-filter-row{min-height:49px;align-items:center}.roster-controls{padding:8px 1px 9px}
+.search-wrapper{max-width:520px}.search-input{height:36px;padding:5px 10px 5px 33px;border-radius:6px;font-size:13px}
+.search-icon{left:10px;font-size:14px}.autocomplete-list{border-radius:6px}.autocomplete-item{min-height:36px;padding:7px 10px;font-size:12px}
+.filter-bar{gap:7px;margin:0;align-items:flex-end}.filter-bar label{margin-bottom:3px;font-size:11.5px;font-weight:600}
+.filter-bar select,.filter-bar input[type=text]{height:34px;min-height:34px;padding:4px 8px;border-radius:5px;font-size:12.5px;font-weight:500}
+.slot-subtabs{gap:2px;margin:0;padding:2px;border-color:var(--border-soft);border-radius:6px}
+.slot-subtabs .btn{height:29px;min-height:29px;padding:3px 10px;border-radius:4px;font-size:11.5px}
+.chip-row{gap:3px;margin:0}.chip{height:29px;min-height:29px;padding:3px 9px;border-radius:5px;font-size:11.5px}
+
+.empty-state{min-height:118px;padding:18px;border-color:var(--border);border-radius:6px;font-size:12.5px;font-weight:450}
+.entity-summary{min-height:58px;margin:0 0 10px;padding:8px 11px;border-radius:6px;gap:10px}
+.entity-avatar{width:34px;height:34px;border-radius:6px;font-size:14px;font-weight:700}
+.entity-name{font-size:16px;font-weight:700}.entity-meta{font-size:12px;font-weight:450}
+.section-head{min-height:31px;margin:8px 0 4px}.section-head-title{font-size:14px;font-weight:650}.section-head-meta{font-size:11.5px}
+
+.compact-table-wrap{border-color:var(--border-soft);border-radius:5px;box-shadow:none}
+.compact-table{min-width:720px}
+.compact-table th{
+  height:32px;padding:5px 7px;background:var(--surface-hover);border-bottom:1px solid var(--border);
+  color:var(--text-muted);font-size:11.5px;font-weight:600;line-height:1.2;text-align:center;vertical-align:middle
+}
+.compact-table td{
+  height:var(--row-h);padding:6px 7px;border-bottom:1px solid var(--border-soft);
+  font-size:12.5px;font-weight:450;line-height:1.25;text-align:center;vertical-align:middle
+}
+.compact-table .subject-cell{font-size:13px;font-weight:650;text-align:center}
+.compact-table .muted-cell{font-size:11.5px}.compact-table .col-count{text-align:center}
+.compact-table .action-cell{text-align:center;font-size:11.5px;font-weight:650}
+.compact-table tbody tr[data-nav]:hover{background:color-mix(in srgb,var(--accent) 4%,var(--surface))}
+.slot-token{min-width:34px;padding:1px 5px;border-radius:3px;font-size:10.5px;font-weight:650}
+.slot-group{margin-bottom:14px}.slot-group-header{min-height:31px;margin:0;padding:3px 0 4px;border-bottom:0;gap:7px}
+.slot-summary{font-size:10.5px;font-weight:500}
+
+.tt-section-title{margin:10px 0 5px;font-size:14px;font-weight:650}
+.timetable{border-spacing:2px;margin-bottom:12px}
+.timetable thead th{height:32px;padding:4px;border-radius:4px;font-size:11.5px;font-weight:600}
+.timetable thead th.day-header{font-size:11.5px}
+.timetable td.period-label{width:48px;padding:4px;border-radius:4px;font-size:11.5px;font-weight:600;text-align:center;vertical-align:middle}
+.tt-cell{height:70px;min-height:70px;padding:5px;border-radius:4px;font-size:12px;line-height:1.2}
+.tt-cell .tt-subj{font-size:13px;font-weight:650;text-align:center}
+.tt-cell .tt-sub{font-size:10.5px;font-weight:450;line-height:1.25;text-align:center}
+.tt-cell .tt-slot-badge{font-size:9px;border-radius:3px}
+.tt-room{font-weight:600}.teacher-separator{padding:0 1px}
+.tt-cell.jayul,.tt-cell.jaseup{border-width:1px}
+.tt-cell-stack{display:grid;gap:3px}
+.tt-cell-stack .tt-cell{height:auto;min-height:54px;border:1px solid var(--border-soft)}
+.tt-group-badge{display:inline-flex;align-items:center;padding:1px 4px;border:1px solid var(--border);border-radius:3px;background:var(--surface-hover);color:var(--text-muted);font-size:9px;font-weight:650;white-space:nowrap}
+.tt-row-stack{display:grid;gap:4px;margin-bottom:5px}
+.tt-row-stack .tt-row{margin-bottom:0}
+.tt-cell.tt-combined{height:auto;min-height:68px;padding:5px 6px}
+.tt-divisions{display:grid;gap:2px;margin-top:3px;width:100%}
+.tt-division-line{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:3px;min-width:0;font-size:9.7px;line-height:1.25;color:var(--text-muted)}
+.tt-division-line .tt-group-badge{font-size:8.5px}
+.tt-division-teacher{font-weight:550;color:var(--text-main);white-space:nowrap}
+.tt-division-room{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);font-weight:550}
+.tt-row.tt-combined-row{grid-template-columns:46px minmax(0,1fr);align-items:start}
+.tt-combined-row .tt-row-body{display:block;min-width:0}
+.tt-combined-row .tt-row-subj{display:block;white-space:normal;margin-bottom:3px}
+.tt-combined-row .tt-divisions{margin-top:4px}
+
+/* V3 timetable surface system */
+.timetable{width:100%;table-layout:fixed;border-spacing:3px}
+.timetable thead tr{height:34px}
+.timetable thead th,.timetable thead th.day-header{
+  height:34px;padding:0;border:1.25px solid #c5cbd3;border-radius:4px;
+  text-align:center;vertical-align:middle;line-height:34px;font-size:11.5px
+}
+.timetable tbody tr{height:76px}
+.timetable tbody td{height:76px;padding:0;vertical-align:middle}
+.timetable td.period-label{
+  width:50px;height:76px;padding:0;border:1.25px solid #c5cbd3;border-radius:4px;
+  text-align:center;vertical-align:middle;line-height:76px;font-size:11.5px
+}
+.tt-cell,.tt-cell.tt-combined,.tt-cell-stack .tt-cell{
+  box-sizing:border-box;width:100%;height:76px;min-height:76px;padding:5px 6px;
+  border:1.25px solid #c5cbd3;border-radius:4px;background:var(--surface)
+}
+.tt-cell.empty{border:1.25px solid #d3d8de;background:#f8f9fa}
+.tt-cell.has-slot{
+  border-width:1.25px;border-style:solid;
+  border-color:color-mix(in srgb,var(--slot-color) 36%,#c5cbd3);
+  background:color-mix(in srgb,var(--slot-color) 8%,#ffffff)
+}
+.tt-row.has-slot{
+  border-width:1px;border-style:solid;
+  border-color:color-mix(in srgb,var(--slot-color) 34%,#c5cbd3);
+  background:color-mix(in srgb,var(--slot-color) 8%,#ffffff)
+}
+
+/* V3 readability pass */
+body{font-size:15px;line-height:1.5}
+.brand-title{font-size:18px}.teacher-badge{font-size:12px}
+.primary-tab{font-size:15px}.icon-btn{font-size:13px}
+.sync-time{font-size:12.5px}
+.view-group-label{font-size:15px}.view-description{font-size:13px}
+.subnav-btn,.slot-subtabs .btn,.chip{font-size:13.5px}
+.search-input{font-size:14px}
+.autocomplete-item{font-size:13.5px}
+.filter-bar label{font-size:12.5px}
+.filter-bar select,.filter-bar input[type=text]{font-size:13.5px}
+.entity-name{font-size:18px}.entity-meta{font-size:13px}
+.section-head-title,.tt-section-title{font-size:15.5px}.section-head-meta{font-size:12.5px}
+
+.timetable thead tr{height:39px}
+.timetable thead th,.timetable thead th.day-header{
+  height:39px;line-height:39px;font-size:14px;font-weight:650
+}
+.timetable tbody tr{height:110px}
+.timetable tbody td{height:110px}
+.timetable td.period-label{
+  height:110px;line-height:110px;font-size:14px;font-weight:650
+}
+.tt-cell,.tt-cell.tt-combined,.tt-cell-stack .tt-cell{
+  height:110px;min-height:110px;padding:7px 8px
+}
+.tt-cell .tt-subj{font-size:16px;font-weight:700;line-height:1.25;word-break:keep-all}
+.tt-cell .tt-sub{font-size:13px;line-height:1.35;font-weight:500}
+.tt-cell .tt-slot-badge{font-size:11px}
+.tt-divisions{gap:4px;margin-top:6px}
+.tt-division-line{
+  grid-template-columns:auto max-content minmax(0,1fr);gap:6px;
+  font-size:12.5px;line-height:1.35;word-break:keep-all
+}
+.tt-division-line .tt-group-badge{font-size:10.5px;padding:1px 5px}
+.tt-division-teacher{font-size:12.5px}
+.tt-division-room{font-size:12.5px;word-break:keep-all}
+.tt-group-badge{font-size:10.5px}
+
+.compact-table th{font-size:13px}.compact-table td{font-size:14px}
+.compact-table .subject-cell{font-size:14.5px}.compact-table .muted-cell{font-size:13px}
+.data-table th{font-size:13px}.data-table td{font-size:14px}
+
+@media(max-width:850px){
+  .brand-title{font-size:17px}.primary-tab{font-size:13px}
+  .view-group-label{font-size:14px}.view-description{font-size:12px}
+  .tt-row{min-height:51px;padding:9px 10px}
+  .tt-row-period{font-size:12.5px}.tt-row-subj{font-size:14.5px}
+  .tt-row-teacher,.tt-row-meta{font-size:12px}
+  .tt-division-line{font-size:12px;gap:5px}
+  .tt-division-teacher,.tt-division-room{font-size:12px}
+}
+
+.breakdown{min-height:34px;align-items:center;margin:5px 0;padding:5px 7px;border-radius:5px;font-size:10.5px}
+.breakdown-item{padding:2px 6px;border-radius:4px;font-size:10.5px}
+.card{border-radius:6px}.data-table{border-radius:4px}
+.data-table th,.data-table td{text-align:center;vertical-align:middle}
+.data-table th{height:33px;padding:4px 5px;font-size:11.5px}.data-table td{height:36px;padding:4px 5px;font-size:12.5px}
+.date-input{font-size:11px;font-weight:500}
+
+@media(max-width:1000px){
+  .header{grid-template-columns:auto 1fr auto;gap:13px;padding:0 12px}
+  .primary-nav{gap:13px}.container{padding-left:12px;padding-right:12px}.subnav-inner{padding-left:12px;padding-right:12px}
+}
+@media(max-width:850px){
+  :root{--header-h:88px;--subnav-h:43px}
+  .header{height:var(--header-h);min-height:var(--header-h);padding:7px 9px;gap:6px 8px}
+  .primary-nav{height:37px}.primary-tab{min-height:29px;font-size:11.5px}
+  .subnav-shell,.subnav-inner{height:var(--subnav-h);min-height:var(--subnav-h)}
+  .subnav-inner{padding:5px 9px}.container{padding:0 9px 72px}
+  .view-filter-row,.roster-controls{min-height:47px;padding:7px 0;margin-bottom:8px}
+  .entity-summary{margin-top:0}
+}
+@media(max-width:640px){
+  .compact-table-wrap{border:0;background:transparent;overflow:visible}
+  .compact-table{min-width:0}
+  .compact-table tbody{gap:5px}
+  .compact-table tr{grid-template-columns:1fr 1fr;gap:6px 10px;padding:8px;border-radius:5px}
+  .compact-table td{height:auto;min-height:0;padding:0;font-size:11.5px;line-height:1.25;text-align:left!important}
+  .compact-table td::before{margin-bottom:1px;font-size:9.5px}
+  .compact-table .subject-cell{font-size:12.5px;text-align:left!important}
+  .compact-table .action-cell{padding-top:5px;text-align:left!important}
+  .tt-row{min-height:43px;padding:7px 8px;border-radius:5px}.tt-row-period{font-size:11px}.tt-row-subj{font-size:12.5px}
+  #rosterResult .card{overflow-x:auto!important;overscroll-behavior-x:contain}
+  #rosterResult .data-table{min-width:920px;table-layout:fixed}
+  #rosterResult .data-table th:nth-child(1),#rosterResult .data-table td:nth-child(1){position:sticky;left:0;width:44px;min-width:44px;z-index:4;background:var(--surface)}
+  #rosterResult .data-table th:nth-child(2),#rosterResult .data-table td:nth-child(2){position:sticky;left:44px;width:66px;min-width:66px;z-index:4;background:var(--surface)}
+  #rosterResult .data-table th:nth-child(3),#rosterResult .data-table td:nth-child(3){position:sticky;left:110px;width:82px;min-width:82px;z-index:4;background:var(--surface);box-shadow:3px 0 0 var(--border-soft)}
+  #rosterResult .data-table thead th:nth-child(-n+3){z-index:6;background:var(--surface-hover)}
+  #rosterResult .date-input{min-width:68px}
+}
+
 @media print{
+  html,body{height:auto!important;overflow:visible!important}
   body{background:#fff;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .header-wrapper,.controls,.search-wrapper,.no-print,.slot-subtabs,.chip-row,.filter-bar{display:none!important}
   .container{padding:0!important;margin:0!important;max-width:100%}
@@ -183,21 +608,35 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text-m
 
 <div class="header-wrapper no-print">
   <div class="header">
-    <div class="header-left">
-      <h1><span class="icon">📋</span> 학생 선택과목 대시보드</h1>
-      <div class="header-meta">
-        <span class="stats-badge" id="statsBadge">—</span>
-        <span class="sync-time" id="syncTime"></span>
-        <button class="icon-btn" id="refreshBtn" title="새로고침">🔄</button>
-      </div>
+    <div class="brand-block">
+      <span class="brand-title">선택과목 업무</span>
+      <span class="teacher-badge">교사용</span>
     </div>
-    <div class="controls">
-      <button class="btn active" id="btn_student">👨‍🎓 학생</button>
-      <button class="btn" id="btn_slot">🗂️ 슬롯별</button>
-      <button class="btn" id="btn_class">🏫 반별</button>
-      <button class="btn" id="btn_roster">📝 명렬표</button>
-      <button class="btn" id="btn_teacher">🧑‍🏫 교사시간표</button>
-      <button class="btn" id="btn_location">📍 수업장소</button>
+    <nav class="primary-nav" aria-label="업무 메뉴">
+      <button class="primary-tab active" data-group="enrollment">수강 현황</button>
+      <button class="primary-tab" data-group="timetable">시간표</button>
+      <button class="primary-tab" data-group="roster" data-tab="roster">명렬표·출석부</button>
+    </nav>
+    <div class="header-tools">
+      <div class="header-meta">
+        <span class="sync-time" id="syncTime"></span>
+      </div>
+      <button class="icon-btn" id="refreshBtn" type="button">새로고침</button>
+    </div>
+  </div>
+  <div id="subnavShell" class="subnav-shell">
+    <div class="subnav-inner">
+      <div class="view-context">
+        <span id="viewGroupLabel" class="view-group-label">수강 현황</span>
+        <span id="viewDescription" class="view-description">학생 또는 슬롯을 기준으로 수강 배정을 확인합니다.</span>
+      </div>
+      <div id="secondaryNav" class="controls" aria-label="세부 보기">
+        <button class="subnav-btn active" id="btn_student" data-group="enrollment" data-tab="student">학생별</button>
+        <button class="subnav-btn" id="btn_slot" data-group="enrollment" data-tab="slot">슬롯별</button>
+        <button class="subnav-btn" id="btn_class" data-group="timetable" data-tab="class" hidden>반별</button>
+        <button class="subnav-btn" id="btn_teacher" data-group="timetable" data-tab="teacher" hidden>교사별</button>
+        <button class="subnav-btn" id="btn_location" data-group="timetable" data-tab="location" hidden>장소별</button>
+      </div>
     </div>
   </div>
 </div>
@@ -221,6 +660,21 @@ const SC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#3b82f6
 function escapeHtml(str){
   if(str==null) return '';
   return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function splitTeachers(value){
+  return String(value || '').split(/[\/／]/).map(name=>name.trim()).filter(Boolean);
+}
+function hasTeacher(value, teacher){
+  return splitTeachers(value).some(name=>name === teacher);
+}
+function teachersOverlap(a, b){
+  const right = new Set(splitTeachers(b));
+  return splitTeachers(a).some(name=>right.has(name));
+}
+function renderTeacherLinks(value){
+  const names = splitTeachers(value);
+  if(!names.length || (names.length === 1 && names[0] === '미정')) return '미정';
+  return names.map(name=>`<span data-nav="teacher" data-arg1="${escapeHtml(name)}">${escapeHtml(name)}</span>`).join('<span class="teacher-separator"> / </span>');
 }
 function debounce(fn, ms){
   let t;
@@ -269,15 +723,44 @@ function normalizeSubject(value) {
   return String(value || '').trim().replace(/\s+/g, '');
 }
 
-function normalizeRoom(value, gradeStr) {
+function parseTargetBans(value) {
+  return [...new Set(String(value || '')
+    .split(/[,，/\s]+/)
+    .map(v => parseInt(v, 10))
+    .filter(Number.isFinite))];
+}
+
+function inferTargetBans(grade, ban, subject) {
+  const key = normalizeSubject(subject);
+  const b = String(ban || '');
+  if ((grade === 1 && key === '공통수학2') || (grade === 2 && key === '미적분Ⅰ')) {
+    if (['1','6'].includes(b)) return [1];
+    if (['2','3','7'].includes(b)) return [2,3];
+    if (['4','5','8'].includes(b)) return [4,5];
+  }
+  if ((grade === 1 && key === '공통영어2') || (grade === 2 && key === '영어Ⅱ')) {
+    if (['1','2','6'].includes(b)) return [1,2];
+    if (['3','4','7'].includes(b)) return [3,4];
+    if (['5','8'].includes(b)) return [5];
+  }
+  return [];
+}
+
+function rowMatchesClass(row, ban) {
+  return row.targetBans?.length ? row.targetBans.includes(Number(ban)) : row.ban === Number(ban);
+}
+
+function normalizeRoom(value, gradeStr, banValue) {
   const room = String(value || '').trim().replace(/\s+/g, ' ');
   if (!room) return '';
+  const grade = String(gradeStr || '').match(/(\d+)/);
+  const ban = parseInt(banValue, 10);
+  if (room === '반' && grade && ban) return grade[1] + '학년 ' + ban + '반';
   let match = room.match(/^(\d+)\s*[-–]\s*(\d+)$/);
   if (match) return match[1] + '학년 ' + parseInt(match[2], 10) + '반';
   match = room.match(/^(\d+)\s*학년\s*(\d+)\s*반$/);
   if (match) return match[1] + '학년 ' + parseInt(match[2], 10) + '반';
   match = room.match(/^(\d+)\s*반$/);
-  const grade = String(gradeStr || '').match(/(\d+)/);
   if (match && grade) return grade[1] + '학년 ' + parseInt(match[1], 10) + '반';
   return room;
 }
@@ -326,16 +809,24 @@ function parseSchedule(data) {
   const subjectIndex = indexOf('과목');
   const teacherIndex = indexOf('교사');
   const slotIndex = indexOf('슬롯');
+  const foundRoomIndex = indexOf('수업장소');
+  const roomIndex = foundRoomIndex >= 0 ? foundRoomIndex : 7;
+  const targetIndex = indexOf('대상반');
 
   for (const row of rows) {
     const grade = parseInt(getGvizValue(row, gradeIndex), 10);
-    const ban = parseInt(getGvizValue(row, banIndex), 10);
     const day = getGvizValue(row, dayIndex);
     const period = parseInt(getGvizValue(row, periodIndex), 10);
     const subject = getGvizValue(row, subjectIndex);
     const teacher = getGvizValue(row, teacherIndex);
-    const slot = getGvizValue(row, slotIndex);
-    if (grade && ban && day && period && subject) scheduleData.push({ grade, ban, day, period, subject, teacher, slot });
+    const slot = normalizeSlot(getGvizValue(row, slotIndex));
+    const ban = slot ? null : parseInt(getGvizValue(row, banIndex), 10);
+    let targetBans = slot || targetIndex < 0 ? [] : parseTargetBans(getGvizValue(row, targetIndex));
+    if(!slot && !targetBans.length) targetBans = inferTargetBans(grade, ban, subject);
+    const room = normalizeRoom(getGvizValue(row, roomIndex), grade, ban);
+    if (grade && day && period && subject && (slot || ban)) {
+      scheduleData.push({ grade, ban, targetBans, day, period, subject, teacher, slot, room });
+    }
   }
 }
 
@@ -441,8 +932,48 @@ function calculateClassroomCounts() {
   }
 }
 
+function applyScheduleRoomsToClassrooms() {
+  for (const course of classroomData) {
+    const grade = parseInt(course.grade, 10);
+    const courseSlot = normalizeSlot(course.slot);
+    const baseSlot = courseSlot.charAt(0);
+    const subject = normalizeSubject(course.subject);
+    let rows = scheduleData
+      .filter(row => row.grade === grade && row.slot && row.room
+        && normalizeSubject(row.subject) === subject
+        && (normalizeSlot(row.slot) === courseSlot || normalizeSlot(row.slot) === baseSlot));
+    if(course.teacher){
+      const teacherRows = rows.filter(row=>teachersOverlap(row.teacher, course.teacher));
+      if(teacherRows.length) rows = teacherRows;
+    }
+    if(course.room){
+      const roomRows = rows.filter(row=>row.room === course.room);
+      if(roomRows.length) rows = roomRows;
+    }
+    const rooms = [...new Set(rows.map(row=>row.room))];
+    if (rooms.length) course.room = rooms.join(' · ');
+  }
+}
+
+function applyClassroomTeachersToSchedule() {
+  for (const row of scheduleData) {
+    if(!row.slot) continue;
+    const slot = normalizeSlot(row.slot);
+    const candidates = classroomData.filter(item => parseInt(item.grade, 10) === row.grade
+      && normalizeSubject(item.subject) === normalizeSubject(row.subject)
+      && (normalizeSlot(item.slot) === slot || normalizeSlot(item.slot).charAt(0) === slot.charAt(0)));
+    let course = candidates.find(item=>normalizeSlot(item.slot) === slot);
+    if(!course && row.teacher) course = candidates.find(item=>teachersOverlap(item.teacher, row.teacher));
+    if(!course && row.room) course = candidates.find(item=>item.room === row.room);
+    if(!course && candidates.length === 1) course = candidates[0];
+    if(course?.teacher) row.teacher = course.teacher;
+  }
+}
+
 function checkReady() {
   if (dataLoaded < TOTAL) return;
+  applyClassroomTeachersToSchedule();
+  applyScheduleRoomsToClassrooms();
   calculateClassroomCounts();
   lastLoadTime = Date.now();
   document.getElementById('loadingOverlay').style.opacity = '0';
@@ -507,10 +1038,12 @@ fetchAllData();
    헤더 메타
    ============================================================ */
 function updateStatsBadge(){
+  const badge = document.getElementById('statsBadge');
+  if(!badge) return;
   const g2s = allStudents.filter(s=>s.grade==='2학년').length;
   const g3s = allStudents.filter(s=>s.grade==='3학년').length;
   const crs = classroomData.length;
-  document.getElementById('statsBadge').textContent =
+  badge.textContent =
     `학생 ${g2s+g3s}명 (2년 ${g2s}·3년 ${g3s}) · 강좌 ${crs}개`;
 }
 function updateSyncTime(){
@@ -529,22 +1062,62 @@ const TAB_RENDERERS = {
   teacher: renderTeacherTab,
   location: renderLocationTab,
 };
+const TAB_GROUPS = {
+  student: 'enrollment', slot: 'enrollment',
+  class: 'timetable', teacher: 'timetable', location: 'timetable',
+  roster: 'roster',
+};
+const GROUP_DEFAULTS = { enrollment: 'student', timetable: 'class', roster: 'roster' };
+const GROUP_LABELS = {
+  enrollment: ['수강 현황', '학생 또는 슬롯을 기준으로 수강 배정을 확인합니다.'],
+  timetable: ['시간표', '반·교사·장소 기준으로 주간 수업을 확인합니다.'],
+  roster: ['명렬표·출석부', '강좌를 선택하고 출력 형식과 열 수를 설정합니다.'],
+};
+const lastTabByGroup = { ...GROUP_DEFAULTS };
+let activeTab = 'student';
+
+function syncNavigation(id){
+  const group = TAB_GROUPS[id] || 'enrollment';
+  activeTab = id;
+  lastTabByGroup[group] = id;
+
+  document.querySelectorAll('.primary-tab').forEach(button => {
+    button.classList.toggle('active', button.dataset.group === group);
+  });
+  document.querySelectorAll('.subnav-btn').forEach(button => {
+    button.hidden = button.dataset.group !== group;
+    button.classList.toggle('active', button.dataset.tab === id);
+  });
+
+  const shell = document.getElementById('subnavShell');
+  const label = document.getElementById('viewGroupLabel');
+  const description = document.getElementById('viewDescription');
+  shell?.classList.toggle('roster-mode', group === 'roster');
+  if(label) label.textContent = GROUP_LABELS[group][0];
+  if(description) description.textContent = GROUP_LABELS[group][1];
+}
+
 function switchTab(id){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.controls .btn').forEach(b=>b.classList.remove('active'));
   const pane = document.getElementById('tab_'+id);
-  const btn = document.getElementById('btn_'+id);
   if(pane) pane.classList.add('active');
-  if(btn) btn.classList.add('active');
+  syncNavigation(id);
   if(!renderedTabs.has(id) && TAB_RENDERERS[id]){
     TAB_RENDERERS[id](pane);
     renderedTabs.add(id);
   }
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
 }
 
-/* 헤더 버튼 바인딩 */
-['student','slot','class','roster','teacher','location'].forEach(id=>{
-  document.getElementById('btn_'+id).addEventListener('click', ()=>switchTab(id));
+/* 전역 업무와 하위 보기 바인딩 */
+document.querySelectorAll('.primary-tab').forEach(button=>{
+  button.addEventListener('click', ()=>{
+    const group = button.dataset.group;
+    switchTab(button.dataset.tab || lastTabByGroup[group] || GROUP_DEFAULTS[group]);
+  });
+});
+document.querySelectorAll('.subnav-btn').forEach(button=>{
+  button.addEventListener('click', ()=>switchTab(button.dataset.tab));
 });
 document.getElementById('refreshBtn').addEventListener('click', reloadData);
 
@@ -647,17 +1220,16 @@ document.addEventListener('click', e => {
    ============================================================ */
 function renderStudentTab(c){
   c.innerHTML = `
-    <div style="text-align:center;margin-bottom:24px;">
-      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">👨‍🎓 학생 선택과목 조회</h2>
-      <div class="search-wrapper no-print">
-        <span class="search-icon">🔎</span>
-        <input type="text" id="searchStudent" class="search-input" placeholder="이름 또는 학번을 입력하세요..." autocomplete="off">
+    <div class="view-filter-row no-print">
+      <div class="search-wrapper" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchStudent" class="search-input" placeholder="학생 이름 또는 학번 검색" autocomplete="off">
         <div id="studentDropdown" class="autocomplete-list"></div>
       </div>
     </div>
     <div id="studentResult">
-      <div style="text-align:center;color:var(--text-muted);padding:40px;font-weight:700;">
-        검색창에 학생 학번이나 이름을 입력해 주세요.
+      <div class="empty-state">
+        학생 이름이나 학번을 검색하면 수강 과목과 주간 시간표를 확인할 수 있습니다.
       </div>
     </div>`;
 
@@ -732,38 +1304,40 @@ function selectStudent(id){
   const timetableHtml = (gradeNum && ban) ? buildStudentTimetable(s) : '';
 
   let h = `
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;padding:18px 22px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border-radius:16px;">
-      <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;flex-shrink:0;">${escapeHtml(s.name.charAt(0))}</div>
+    <div class="entity-summary">
       <div>
-        <div style="font-size:22px;font-weight:900;">${escapeHtml(s.name)}</div>
-        <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">
+        <div class="entity-name">${escapeHtml(s.name)}</div>
+        <div class="entity-meta">
           <span data-nav="class" data-arg1="${escapeHtml(s.grade)}" data-arg2="${ban||''}">${escapeHtml(s.homeroom)}</span>
           · 학번 ${escapeHtml(s.id)} · 수강과목 ${pairs.length}개
         </div>
       </div>
     </div>
     ${timetableHtml}
-    <div class="tt-section-title">📚 선택과목 상세</div>
-    <div class="grid-layout">`;
+    <div class="section-head">
+      <div class="section-head-title">선택과목</div>
+      <div class="section-head-meta">${pairs.length}개 강좌</div>
+    </div>
+    <div class="compact-table-wrap">
+      <table class="compact-table">
+        <thead><tr><th class="col-slot">슬롯</th><th>과목</th><th class="col-person">담당 교사</th><th class="col-room">수업 장소</th><th class="action-cell">이동</th></tr></thead>
+        <tbody>`;
 
   if(!pairs.length){
-    h += `<div style="grid-column:1/-1;color:var(--text-muted);font-weight:800;text-align:center;padding:30px;">선택과목 데이터가 없습니다.</div>`;
+    h += `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">선택과목 데이터가 없습니다.</td></tr>`;
   }
   pairs.forEach(p=>{
     const col = slotColor(p.slot);
     h += `
-      <div class="card" style="border-left:5px solid ${col};padding:18px;">
-        <div class="card-header">
-          <span class="badge" style="background:${col}15;color:${col};border-color:${col}40;" data-nav="slot" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}">📌 슬롯 ${escapeHtml(p.slot)}</span>
-        </div>
-        <div class="card-title" style="margin-bottom:12px;font-size:19px;" data-nav="roster" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}" data-arg3="${escapeHtml(p.subj)}">${escapeHtml(p.subj)}</div>
-        <div style="background:var(--surface-hover);padding:11px;border-radius:10px;font-weight:700;font-size:13px;">
-          <div style="margin-bottom:5px;">🧑‍🏫 지도교사: <span style="color:var(--text-muted)" data-nav="teacher" data-arg1="${escapeHtml(p.teacher)}">${escapeHtml(p.teacher)}</span></div>
-          <div>📍 수업장소: <strong style="color:${col};font-size:14px;">${escapeHtml(p.room)}</strong></div>
-        </div>
-      </div>`;
+      <tr data-nav="roster" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}" data-arg3="${escapeHtml(p.subj)}">
+        <td class="col-slot" data-label="슬롯"><span class="slot-token" style="--slot-color:${col}" data-nav="slot" data-arg1="${escapeHtml(s.grade)}" data-arg2="${escapeHtml(p.slot)}">${escapeHtml(p.slot)}</span></td>
+        <td class="subject-cell" data-label="과목">${escapeHtml(p.subj)}</td>
+        <td class="col-person muted-cell" data-label="담당 교사">${renderTeacherLinks(p.teacher)}</td>
+        <td class="col-room" data-label="수업 장소">${escapeHtml(p.room)}</td>
+        <td class="action-cell" data-label="이동">명렬표</td>
+      </tr>`;
   });
-  h += `</div>`;
+  h += `</tbody></table></div>`;
   document.getElementById('studentResult').innerHTML = h;
 }
 
@@ -792,15 +1366,14 @@ function renderTimetableGrid(entries, opts){
   });
 
   const pick = (cells) => {
-    if(!cells || !cells.length) return null;
+    if(!cells || !cells.length) return [];
     if(opts.highlightStudentSubjects){
-      const picks = cells.filter(e=>{
+      return cells.filter(e=>{
         if(!e.slot) return true;
         return opts.highlightStudentSubjects[e.subject] === e.slot;
       });
-      return picks[0] || null;
     }
-    return cells[0];
+    return cells;
   };
 
   // === 데스크톱: 격자 ===
@@ -811,8 +1384,13 @@ function renderTimetableGrid(entries, opts){
     h += `<tr><td class="period-label">${p}교시</td>`;
     DAYS.forEach(d=>{
       const chosen = pick(grid[`${d}|${p}`]);
-      if(!chosen){ h += `<td><div class="tt-cell empty"></div></td>`; return; }
-      h += `<td>${renderTimetableCell(chosen, opts)}</td>`;
+      if(!chosen.length){ h += `<td><div class="tt-cell empty"></div></td>`; return; }
+      if(canCombineDivisionEntries(chosen)){
+        h += `<td>${renderCombinedTimetableCell(chosen)}</td>`;
+        return;
+      }
+      const cells = chosen.map(e=>renderTimetableCell(e, opts)).join('');
+      h += `<td>${chosen.length>1?`<div class="tt-cell-stack">${cells}</div>`:cells}</td>`;
     });
     h += `</tr>`;
   }
@@ -831,12 +1409,17 @@ function renderTimetableGrid(entries, opts){
     let anyRow = false;
     for(let p=1; p<=maxP; p++){
       const chosen = pick(grid[`${d}|${p}`]);
-      if(!chosen){
+      if(!chosen.length){
         m += `<div class="tt-row empty"><span class="tt-row-period">${p}교시</span><span>—</span></div>`;
         continue;
       }
       anyRow = true;
-      m += renderTimetableRow(p, chosen, opts);
+      if(canCombineDivisionEntries(chosen)){
+        m += renderCombinedTimetableRow(p, chosen);
+        continue;
+      }
+      const rows = chosen.map((e,i)=>renderTimetableRow(p, e, { ...opts, suppressPeriod:i>0 })).join('');
+      m += chosen.length>1 ? `<div class="tt-row-stack">${rows}</div>` : rows;
     }
     if(!anyRow){
       // 전체가 empty인 요일은 간단히 표시
@@ -848,26 +1431,90 @@ function renderTimetableGrid(entries, opts){
   return h + m;
 }
 
+function renderClassLinks(e){
+  const bans = e.targetBans?.length ? e.targetBans : (e.ban ? [e.ban] : []);
+  return bans.map(b=>`<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(b)}">${escapeHtml(e.grade)}-${escapeHtml(b)}반</span>`).join('·');
+}
+
+function divisionNumber(e){
+  if(!e.targetBans?.length || !e.ban) return e.ban || '';
+  const targetKey = [...e.targetBans].sort((a,b)=>a-b).join(',');
+  const subject = normalizeSubject(e.subject);
+  let order = [];
+  if(subject === '공통수학2' || subject === '미적분Ⅰ'){
+    if(targetKey === '1') order = [1,6];
+    else if(targetKey === '2,3') order = [2,3,7];
+    else if(targetKey === '4,5') order = [4,5,8];
+  } else if(subject === '공통영어2' || subject === '영어Ⅱ'){
+    if(targetKey === '1,2') order = [1,2,6];
+    else if(targetKey === '3,4') order = [3,4,7];
+    else if(targetKey === '5') order = [5,8];
+  }
+  const index = order.indexOf(Number(e.ban));
+  return index >= 0 ? index + 1 : e.ban;
+}
+
+function canCombineDivisionEntries(entries){
+  return entries.length > 0
+    && entries.every(e=>!e.slot && e.targetBans?.length)
+    && entries.every(e=>normalizeSubject(e.subject) === normalizeSubject(entries[0].subject));
+}
+
+function renderDivisionLines(entries){
+  return [...entries]
+    .sort((a,b)=>Number(divisionNumber(a))-Number(divisionNumber(b)))
+    .map(e=>`
+      <div class="tt-division-line">
+        <span class="tt-group-badge">분반 ${escapeHtml(divisionNumber(e))}</span>
+        <span class="tt-division-teacher">${e.teacher?renderTeacherLinks(e.teacher):'—'}</span>
+        <span class="tt-division-room" title="${escapeHtml(e.room||'')}">${escapeHtml(e.room||'')}</span>
+      </div>`).join('');
+}
+
+function renderCombinedTimetableCell(entries){
+  return `<div class="tt-cell tt-combined"><div class="tt-subj">${escapeHtml(entries[0].subject)}</div><div class="tt-divisions">${renderDivisionLines(entries)}</div></div>`;
+}
+
+function renderCombinedTimetableRow(period, entries){
+  return `<div class="tt-row tt-combined-row"><span class="tt-row-period">${period}교시</span><div class="tt-row-body"><span class="tt-row-subj">${escapeHtml(entries[0].subject)}</span><div class="tt-divisions">${renderDivisionLines(entries)}</div></div></div>`;
+}
+
+function renderGroupBadge(e){
+  return e.targetBans?.length && e.ban ? `<span class="tt-group-badge">분반 ${escapeHtml(divisionNumber(e))}</span>` : '';
+}
+
+function renderSpecialTimetableMeta(e){
+  const parts = [];
+  const ownRoom = e.grade && e.ban && e.room === `${e.grade}학년 ${e.ban}반`;
+  if(e.grade && e.ban){
+    parts.push(`<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}">${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반</span>`);
+  }
+  if(e.teacher) parts.push(renderTeacherLinks(e.teacher));
+  if(e.room && !ownRoom) parts.push(`<span class="tt-room">${escapeHtml(e.room)}</span>`);
+  return parts.join(' · ');
+}
+
 function renderTimetableRow(period, e, opts){
   opts = opts || {};
+  const periodText = opts.suppressPeriod ? '' : `${period}교시`;
   if(e.subject === '자율활동'){
-    return `<div class="tt-row jayul"><span class="tt-row-period">${period}교시</span><div class="tt-row-body"><span class="tt-row-subj">자율활동</span></div></div>`;
+    const meta = renderSpecialTimetableMeta(e);
+    return `<div class="tt-row jayul"><span class="tt-row-period">${periodText}</span><div class="tt-row-body"><span class="tt-row-subj">자율활동</span>${meta?`<span class="tt-row-teacher">${meta}</span>`:''}</div></div>`;
   }
   if(e.subject === '자습'){
-    return `<div class="tt-row jaseup"><span class="tt-row-period">${period}교시</span><div class="tt-row-body"><span class="tt-row-subj">자습</span></div></div>`;
+    const meta = renderSpecialTimetableMeta(e);
+    return `<div class="tt-row jaseup"><span class="tt-row-period">${periodText}</span><div class="tt-row-body"><span class="tt-row-subj">자습</span>${meta?`<span class="tt-row-teacher">${meta}</span>`:''}</div></div>`;
   }
   const col = e.slot ? slotColor(e.slot) : '#94a3b8';
   const slotClass = e.slot ? ' has-slot' : '';
 
   const teacherNav = e.teacher
-    ? `<span data-nav="teacher" data-arg1="${escapeHtml(e.teacher)}">${escapeHtml(e.teacher)}</span>`
+    ? renderTeacherLinks(e.teacher)
     : '';
-  const banNav = opts.showBan
-    ? `<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}">${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반</span>`
-    : '';
-  const metaInner = opts.showBan
-    ? (teacherNav ? `${banNav} · ${teacherNav}` : banNav)
-    : teacherNav;
+  const banNav = opts.showBan ? renderClassLinks(e) : '';
+  const ownRoom = e.grade && e.ban && e.room === `${e.grade}학년 ${e.ban}반`;
+  const roomMeta = e.room && !(opts.showBan && ownRoom) ? `<span class="tt-room">${escapeHtml(e.room)}</span>` : '';
+  const metaInner = [renderGroupBadge(e), banNav, teacherNav, roomMeta].filter(Boolean).join(' · ');
 
   const slotBadgeHtml = e.slot
     ? `<span class="tt-row-slot" style="background:${col}" data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}">${escapeHtml(e.slot)}</span>`
@@ -883,8 +1530,8 @@ function renderTimetableRow(period, e, opts){
   }
 
   return `
-    <div class="tt-row${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
-      <span class="tt-row-period">${period}교시</span>
+    <div class="tt-row${slotClass}" style="${e.slot?`--slot-color:${col};`:''}">
+      <span class="tt-row-period">${periodText}</span>
       <div class="tt-row-body">
         <span class="tt-row-subj" ${subjNav}>${escapeHtml(e.subject)}</span>
         <div class="tt-row-meta">
@@ -898,22 +1545,22 @@ function renderTimetableRow(period, e, opts){
 function renderTimetableCell(e, opts){
   opts = opts || {};
   if(e.subject === '자율활동'){
-    return `<div class="tt-cell jayul"><div class="tt-subj">자율활동</div></div>`;
+    const meta = renderSpecialTimetableMeta(e);
+    return `<div class="tt-cell jayul"><div class="tt-subj">자율활동</div>${meta?`<div class="tt-sub">${meta}</div>`:''}</div>`;
   }
   if(e.subject === '자습'){
-    return `<div class="tt-cell jaseup"><div class="tt-subj">자습</div></div>`;
+    const meta = renderSpecialTimetableMeta(e);
+    return `<div class="tt-cell jaseup"><div class="tt-subj">자습</div>${meta?`<div class="tt-sub">${meta}</div>`:''}</div>`;
   }
   const col = e.slot ? slotColor(e.slot) : '#94a3b8';
   const slotClass = e.slot ? ' has-slot' : '';
   const teacherNav = e.teacher
-    ? `<span data-nav="teacher" data-arg1="${escapeHtml(e.teacher)}">${escapeHtml(e.teacher)}</span>`
+    ? renderTeacherLinks(e.teacher)
     : '';
-  const banNav = opts.showBan
-    ? `<span data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}">${escapeHtml(e.grade)}-${escapeHtml(e.ban)}반</span>`
-    : '';
-  const subLine = opts.showBan
-    ? (teacherNav ? `${banNav} · ${teacherNav}` : banNav)
-    : teacherNav;
+  const banNav = opts.showBan ? renderClassLinks(e) : '';
+  const ownRoom = e.grade && e.ban && e.room === `${e.grade}학년 ${e.ban}반`;
+  const roomMeta = e.room && !(opts.showBan && ownRoom) ? `<span class="tt-room">${escapeHtml(e.room)}</span>` : '';
+  const subLine = [renderGroupBadge(e), banNav, teacherNav, roomMeta].filter(Boolean).join(' · ');
   const slotBadgeHtml = e.slot
     ? `<span class="tt-slot-badge" style="background:${col}" data-nav="slot" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.slot)}">${escapeHtml(e.slot)}</span>`
     : '';
@@ -927,7 +1574,7 @@ function renderTimetableCell(e, opts){
     subjNav = `data-nav="class" data-arg1="${escapeHtml(e.grade)}" data-arg2="${escapeHtml(e.ban)}"`;
   }
   return `
-    <div class="tt-cell${slotClass}" style="${e.slot?`border-left-color:${col};`:''}">
+    <div class="tt-cell${slotClass}" style="${e.slot?`--slot-color:${col};`:''}">
       <div class="tt-subj" ${subjNav}>${escapeHtml(e.subject)}</div>
       <div class="tt-sub"><span>${subLine}</span>${slotBadgeHtml}</div>
     </div>`;
@@ -943,32 +1590,49 @@ function buildStudentTimetable(student){
 
   // 1) 공통과목 / 자율 / 자습: 반별시간표에서 슬롯 없는 행만
   scheduleData
-    .filter(r => r.grade === grade && r.ban === ban && !r.slot)
+    .filter(r => r.grade === grade && rowMatchesClass(r, ban) && !r.slot)
     .forEach(r => entries.push({ ...r }));
 
   // 2) 선택과목: 학생의 과목·슬롯 + slotTimeMap 시간 조합
   //    슬롯이 'W2' 처럼 숫자 붙어있으면 첫 글자로 시간 조회 (같은 시간대 분반)
   Object.entries(student.subjects).forEach(([subj, slotRaw]) => {
-    const baseSlot = (slotRaw || '').charAt(0);
+    const normalizedSlot = normalizeSlot(slotRaw);
+    const baseSlot = normalizedSlot.charAt(0);
     if(!baseSlot) return;
     const ci = findClassroom(student.grade, slotRaw, subj);
     const teacher = ci?.teacher || '';
-    slotTimeMap
-      .filter(t => t.grade === grade && t.slot === baseSlot)
-      .forEach(t => {
-        entries.push({
-          grade, ban,
-          day: t.day, period: t.period,
-          subject: subj, teacher, slot: slotRaw
+    let scheduled = scheduleData.filter(row => row.grade === grade && row.slot
+      && normalizeSubject(row.subject) === normalizeSubject(subj)
+      && (normalizeSlot(row.slot) === normalizedSlot || normalizeSlot(row.slot) === baseSlot));
+    if(ci?.teacher){
+      const teacherRows = scheduled.filter(row=>teachersOverlap(row.teacher, ci.teacher));
+      if(teacherRows.length) scheduled = teacherRows;
+    }
+    if(ci?.room){
+      const courseRooms = ci.room.split(' · ').map(room=>room.trim()).filter(Boolean);
+      const roomRows = scheduled.filter(row=>courseRooms.includes(row.room));
+      if(roomRows.length) scheduled = roomRows;
+    }
+    if(scheduled.length){
+      scheduled.forEach(row => entries.push({ ...row, slot: slotRaw }));
+    } else {
+      slotTimeMap
+        .filter(t => t.grade === grade && t.slot === baseSlot)
+        .forEach(t => {
+          entries.push({
+            grade, ban:null,
+            day: t.day, period: t.period,
+            subject: subj, teacher, slot: slotRaw, room:ci?.room || ''
+          });
         });
-      });
+    }
   });
 
   if(!entries.length){
     return `<div style="margin:14px 0;padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;font-weight:700;color:#92400e;">⚠️ 시간표 데이터 없음 (${grade}학년 ${ban}반)</div>`;
   }
   const grid = renderTimetableGrid(entries, {});
-  return `<div class="tt-section-title">📅 주간 시간표</div>${grid}`;
+  return `<div class="tt-section-title">주간 시간표</div>${grid}`;
 }
 
 /* ============================================================
@@ -977,12 +1641,11 @@ function buildStudentTimetable(student){
 let slotTabGrade = '2학년';
 function renderSlotTab(c){
   c.innerHTML = `
-    <div style="text-align:center;margin-bottom:20px;">
-      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">🗂️ 슬롯별 강좌 보기</h2>
-    </div>
-    <div class="slot-subtabs no-print">
-      <button class="btn sub active" data-grade="2학년">2학년</button>
-      <button class="btn sub" data-grade="3학년">3학년</button>
+    <div class="view-filter-row no-print">
+      <div class="slot-subtabs">
+        <button class="btn sub${slotTabGrade==='2학년'?' active':''}" data-grade="2학년">2학년</button>
+        <button class="btn sub${slotTabGrade==='3학년'?' active':''}" data-grade="3학년">3학년</button>
+      </div>
     </div>
     <div id="slotContent"></div>`;
   c.querySelectorAll('.slot-subtabs .btn').forEach(b=>{
@@ -1025,28 +1688,30 @@ function renderSlotContent(){
       .sort((a,b) => (dayOrder[a.day] - dayOrder[b.day]) || (a.period - b.period))
       .map(t => `${t.day}${t.period}`);
     const timesHtml = times.length
-      ? `<span class="slot-summary" style="background:${col}15;color:${col};padding:3px 9px;border-radius:6px;">🕒 ${times.join(' · ')}</span>`
+      ? `<span class="slot-summary" style="background:${col}15;color:${col};padding:3px 9px;border-radius:6px;">${times.join(' · ')}</span>`
       : '';
     h += `
-      <div class="slot-group" data-slot="${escapeHtml(slot)}">
+      <section class="slot-group" data-slot="${escapeHtml(slot)}">
         <div class="slot-group-header">
-          <span class="slot-label" style="background:${col};">슬롯 ${escapeHtml(slot)}</span>
+          <span class="slot-token" style="--slot-color:${col}">슬롯 ${escapeHtml(slot)}</span>
           <span class="slot-summary">${list.length}개 강좌 · 총 ${total}명</span>
           ${timesHtml}
         </div>
-        <div class="grid-layout">`;
+        <div class="compact-table-wrap">
+          <table class="compact-table">
+            <thead><tr><th>과목</th><th class="col-person">담당 교사</th><th class="col-room">수업 장소</th><th class="col-count">인원</th><th class="action-cell">이동</th></tr></thead>
+            <tbody>`;
     list.forEach(it=>{
       h += `
-        <div class="card clickable" data-nav="roster" data-arg1="${escapeHtml(it.grade)}" data-arg2="${escapeHtml(it.slot)}" data-arg3="${escapeHtml(it.subject)}" style="border-left:4px solid ${col};">
-          <div class="card-title" style="margin-bottom:10px;">${escapeHtml(it.subject)}</div>
-          <div style="font-size:13px;color:var(--text-muted);font-weight:700;line-height:1.8;">
-            <div>🧑‍🏫 <span data-nav="teacher" data-arg1="${escapeHtml(it.teacher||'')}">${escapeHtml(it.teacher||'미정')}</span></div>
-            <div>📍 ${escapeHtml(it.room||'미정')} · 👥 ${it.count||0}명</div>
-          </div>
-          <div style="margin-top:10px;font-size:12px;color:${col};font-weight:800;">→ 명렬표 보기</div>
-        </div>`;
+        <tr data-nav="roster" data-arg1="${escapeHtml(it.grade)}" data-arg2="${escapeHtml(it.slot)}" data-arg3="${escapeHtml(it.subject)}">
+          <td class="subject-cell" data-label="과목">${escapeHtml(it.subject)}</td>
+          <td class="col-person muted-cell" data-label="담당 교사">${renderTeacherLinks(it.teacher)}</td>
+          <td class="col-room" data-label="수업 장소">${escapeHtml(it.room||'미정')}</td>
+          <td class="col-count" data-label="인원">${it.count||0}명</td>
+          <td class="action-cell" data-label="이동">명렬표</td>
+        </tr>`;
     });
-    h += `</div></div>`;
+    h += `</tbody></table></div></section>`;
   });
   container.innerHTML = h;
 }
@@ -1058,14 +1723,14 @@ let classTabGrade = '2학년';
 let classTabRoom = null;
 function renderClassTab(c){
   c.innerHTML = `
-    <div style="text-align:center;margin-bottom:20px;">
-      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">🏫 반별 조회</h2>
+    <div class="view-filter-row no-print">
+      <div class="slot-subtabs">
+        <button class="btn sub${classTabGrade==='1학년'?' active':''}" data-grade="1학년">1학년</button>
+        <button class="btn sub${classTabGrade==='2학년'?' active':''}" data-grade="2학년">2학년</button>
+        <button class="btn sub${classTabGrade==='3학년'?' active':''}" data-grade="3학년">3학년</button>
+      </div>
+      <div id="classRoomChips" class="chip-row"></div>
     </div>
-    <div class="slot-subtabs no-print">
-      <button class="btn sub active" data-grade="2학년">2학년</button>
-      <button class="btn sub" data-grade="3학년">3학년</button>
-    </div>
-    <div id="classRoomChips" class="chip-row no-print"></div>
     <div id="classContent"></div>`;
   c.querySelectorAll('.slot-subtabs .btn').forEach(b=>{
     b.addEventListener('click', ()=>{
@@ -1081,7 +1746,15 @@ function renderClassTab(c){
   renderClassContent();
 }
 function renderClassChips(){
-  const rooms = [...new Set(allStudents.filter(s=>s.grade===classTabGrade).map(s=>s.homeroom))].sort((a,b)=>{
+  let rooms = [...new Set(allStudents.filter(s=>s.grade===classTabGrade).map(s=>s.homeroom))];
+  if(!rooms.length){
+    const gradeNum = parseInt(classTabGrade);
+    rooms = [...new Set(scheduleData
+      .filter(r=>r.grade===gradeNum && !r.slot)
+      .flatMap(r=>(r.targetBans?.length?r.targetBans:(r.ban?[r.ban]:[])))
+      .map(b=>`${classTabGrade} ${b}반`))];
+  }
+  rooms.sort((a,b)=>{
     const na = parseInt(a.match(/(\d+)반/)?.[1]||0);
     const nb = parseInt(b.match(/(\d+)반/)?.[1]||0);
     return na-nb;
@@ -1114,7 +1787,7 @@ function renderClassContent(){
   const entries = [];
   // 공통/자율/자습
   scheduleData
-    .filter(r => r.grade === gradeNum && r.ban === ban && !r.slot)
+    .filter(r => r.grade === gradeNum && rowMatchesClass(r, ban) && !r.slot)
     .forEach(r => entries.push({ ...r }));
   // 선택과목: 해당 반의 slotTimeMap 시간대에 "(선택)" 표시
   const slotsInGrade = [...new Set(slotTimeMap.filter(t=>t.grade===gradeNum).map(t=>t.slot))];
@@ -1138,24 +1811,31 @@ function renderClassContent(){
     : `<div style="text-align:center;padding:30px;color:var(--text-muted);font-weight:700;">시간표 데이터 없음</div>`;
 
   let h = `
-    <div class="card" style="margin-bottom:18px;">
-      <div class="card-header">
-        <div class="card-title">📅 ${escapeHtml(classTabRoom)} 주간 시간표 <span class="badge">${sts.length}명</span></div>
-      </div>
-      <div style="margin-top:14px;">${gridHtml}</div>
+    <div class="section-head">
+      <div class="section-head-title">${escapeHtml(classTabRoom)} 주간 시간표</div>
+      <div class="section-head-meta">재적 ${sts.length}명</div>
     </div>
-    <div class="card">
-      <div class="card-title" style="margin-bottom:14px;">👥 학생 목록</div>
-      <div class="grid-layout">
+    <div class="compact-table-wrap" style="padding:8px;margin-bottom:14px;">${gridHtml}</div>
+    <div class="section-head">
+      <div class="section-head-title">학생 목록</div>
+      <div class="section-head-meta">${sts.length}명</div>
+    </div>
+    <div class="compact-table-wrap">
+      <table class="compact-table">
+        <thead><tr><th class="col-person">학번</th><th>이름</th><th class="col-count">수강 과목</th><th class="action-cell">이동</th></tr></thead>
+        <tbody>
         ${sts.map(s=>{
           const n = Object.keys(s.subjects).length;
           return `
-            <div class="card clickable" data-nav="student" data-arg1="${escapeHtml(s.id)}" style="padding:14px;border-left:4px solid var(--accent);">
-              <div style="font-size:16px;font-weight:900;margin-bottom:4px;">${escapeHtml(s.name)}</div>
-              <div style="font-size:12px;color:var(--text-muted);font-weight:700;">${escapeHtml(s.id)} · 수강 ${n}과목</div>
-            </div>`;
-        }).join('') || '<div style="color:var(--text-muted);font-weight:700;">학생 없음</div>'}
-      </div>
+            <tr data-nav="student" data-arg1="${escapeHtml(s.id)}">
+              <td class="col-person muted-cell" data-label="학번">${escapeHtml(s.id)}</td>
+              <td class="subject-cell" data-label="이름">${escapeHtml(s.name)}</td>
+              <td class="col-count" data-label="수강 과목">${n}개</td>
+              <td class="action-cell" data-label="이동">학생별</td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">학생 없음</td></tr>'}
+        </tbody>
+      </table>
     </div>`;
   host.innerHTML = h;
 }
@@ -1169,11 +1849,10 @@ function renderRosterTab(c){
   const cl = [...combos].sort();
 
   c.innerHTML = `
-    <div class="card no-print" style="margin-bottom:24px;">
-      <div class="card-title" style="margin-bottom:16px;">📝 과목별 명렬표 및 출석부</div>
+    <div class="roster-controls no-print">
       <div class="filter-bar">
         <div style="flex:1;min-width:260px;">
-          <label>📚 강좌 선택</label>
+          <label>강좌 선택</label>
           <select id="rosterSelect" style="width:100%;">
             <option value="">강좌를 선택해주세요...</option>
             ${cl.map(c=>{
@@ -1184,11 +1863,11 @@ function renderRosterTab(c){
           </select>
         </div>
         <div>
-          <label>📅 열 수</label>
+          <label>열 수</label>
           <input type="text" inputmode="numeric" id="rosterCols" value="10" style="width:90px;text-align:center;">
         </div>
         <div>
-          <label>🏷️ 헤더 형식</label>
+          <label>헤더 형식</label>
           <select id="rosterHeaderType">
             <option value="date">날짜 (연도-월-일)</option>
             <option value="perf">수행평가 (1,2,3...)</option>
@@ -1197,7 +1876,7 @@ function renderRosterTab(c){
           </select>
         </div>
         <div>
-          <button class="btn active" style="padding:12px 18px;" id="rosterPrintBtn">🖨️ 인쇄</button>
+          <button class="btn active" style="padding:12px 18px;" id="rosterPrintBtn">인쇄</button>
         </div>
       </div>
       <div class="inline-error" id="rosterError"></div>
@@ -1265,10 +1944,10 @@ function generateRoster(){
   let h = `
     <div class="card" style="padding:0;overflow-x:auto;">
       <div class="print-header" style="text-align:center;margin-bottom:12px;padding-top:10px;">
-        <h2 style="font-size:22px;font-weight:900;margin-bottom:6px;">📋 [${escapeHtml(g)}] ${escapeHtml(sj)} 출석부 (슬롯 ${escapeHtml(sl)})</h2>
-        <div style="font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:8px;">🧑‍🏫 <span data-nav="teacher" data-arg1="${escapeHtml(ci.teacher||'')}">${escapeHtml(ci.teacher||'미정')}</span> 선생님</div>
+        <h2 style="font-size:22px;font-weight:900;margin-bottom:6px;">[${escapeHtml(g)}] ${escapeHtml(sj)} 출석부 (슬롯 ${escapeHtml(sl)})</h2>
+        <div style="font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:8px;">${renderTeacherLinks(ci.teacher)} 선생님</div>
         <div style="display:inline-flex;gap:12px;background:var(--surface-hover);padding:7px 18px;border-radius:12px;font-weight:700;color:var(--text-muted);font-size:13px;" class="no-print">
-          <span>📍 ${escapeHtml(ci.room||'미정')}</span>
+          <span>장소 ${escapeHtml(ci.room||'미정')}</span>
           <span style="color:var(--accent);">총 ${sts.length}명</span>
         </div>
       </div>
@@ -1310,20 +1989,21 @@ function generateRoster(){
 let teacherTabSelected = null;
 function renderTeacherTab(c){
   // 반별시간표에서 등장하는 모든 교사 수집
-  const teachers = [...new Set(scheduleData.map(r=>r.teacher).filter(Boolean))].sort();
+  const teachers = [...new Set([
+    ...scheduleData.flatMap(row=>splitTeachers(row.teacher)),
+    ...classroomData.flatMap(course=>splitTeachers(course.teacher)),
+  ].filter(name=>name && name !== '미정'))].sort();
 
   c.innerHTML = `
-    <div style="text-align:center;margin-bottom:20px;">
-      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">🧑‍🏫 교사 시간표</h2>
-      <p style="color:var(--text-muted);font-size:13px;font-weight:600;">교사 선택 시 주간 시간표가 표시됩니다.</p>
-    </div>
-    <div class="filter-bar no-print" style="justify-content:center;">
-      <div style="min-width:260px;">
+    <div class="view-filter-row no-print">
+      <div class="filter-bar">
+        <div style="min-width:260px;">
         <label>교사 선택</label>
         <select id="teacherSelect" style="width:100%;">
           <option value="">— 교사를 선택하세요 —</option>
           ${teachers.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
         </select>
+        </div>
       </div>
     </div>
     <div id="teacherResult" style="margin-top:18px;"></div>`;
@@ -1342,27 +2022,30 @@ function renderTeacherTab(c){
 
 function renderTeacherTimetable(teacher){
   const out = document.getElementById('teacherResult');
-  const entries = scheduleData.filter(r => r.teacher === teacher);
+  const entries = scheduleData.filter(row => hasTeacher(row.teacher, teacher));
   if(!entries.length){
     out.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);font-weight:700;">해당 교사의 시간표 데이터가 없습니다.</div>`;
     return;
   }
 
   // 요약 통계
-  const classesTaught = [...new Set(entries.map(e=>`${e.grade}-${e.ban}`))].sort();
+  const classesTaught = [...new Set(entries.flatMap(e=>{
+    const bans = e.targetBans?.length ? e.targetBans : (e.ban ? [e.ban] : []);
+    return bans.map(b=>`${e.grade}-${b}`);
+  }))].sort();
   const subjects = [...new Set(entries.map(e=>e.subject))].sort();
+  const rooms = [...new Set(entries.map(e=>e.room).filter(Boolean))].sort();
   const totalHours = entries.length;
 
   // 격자
   const grid = renderTimetableGrid(entries, { showBan: true });
 
   out.innerHTML = `
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:16px 22px;background:linear-gradient(135deg,#eff6ff,#ede9fe);border-radius:16px;">
-      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0;">${escapeHtml(teacher.charAt(0))}</div>
+    <div class="entity-summary">
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:900;">${escapeHtml(teacher)} 선생님</div>
-        <div style="font-size:13px;color:var(--text-muted);font-weight:600;margin-top:4px;">
-          주 ${totalHours}시간 · ${classesTaught.length}개 학급 · ${subjects.length}개 과목
+        <div class="entity-name">${escapeHtml(teacher)} 선생님</div>
+        <div class="entity-meta">
+          주 ${totalHours}시간 · ${classesTaught.length}개 학급 · ${subjects.length}개 과목 · ${rooms.length}개 장소
         </div>
       </div>
     </div>
@@ -1377,35 +2060,40 @@ function renderTeacherTimetable(teacher){
       <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">과목:</span>
       ${subjects.map(s=>`<span class="breakdown-item">${escapeHtml(s)}</span>`).join('')}
     </div>
+    <div class="breakdown">
+      <span style="font-weight:800;color:var(--text-muted);margin-right:4px;">수업 장소:</span>
+      ${rooms.map(room=>`<span class="breakdown-item">${escapeHtml(room)}</span>`).join('') || '<span style="color:var(--text-muted)">미입력</span>'}
+    </div>
     ${grid}`;
 }
 
 function renderLocationTab(c){
   // 선택과목 교사(classroomData) + 공통수업 교사(scheduleData) 합집합
   const teacherSet = new Set();
-  classroomData.forEach(cr => { if(cr.teacher) teacherSet.add(cr.teacher); });
-  scheduleData.forEach(r => { if(r.teacher) teacherSet.add(r.teacher); });
-  const teachers = [...teacherSet].sort();
-  const rooms = [...new Set(classroomData.map(c=>c.room).filter(Boolean))].sort();
+  classroomData.forEach(course => splitTeachers(course.teacher).forEach(name=>teacherSet.add(name)));
+  scheduleData.forEach(row => splitTeachers(row.teacher).forEach(name=>teacherSet.add(name)));
+  const teachers = [...teacherSet].filter(name=>name && name !== '미정').sort();
+  const rooms = [...new Set([
+    ...classroomData.map(c=>c.room),
+    ...scheduleData.map(row=>row.room),
+  ].filter(Boolean))].sort();
 
   c.innerHTML = `
-    <div style="text-align:center;margin-bottom:28px;">
-      <h2 style="font-weight:900;margin-bottom:14px;font-size:26px;">📍 수업 장소 통합 검색</h2>
-      <p style="color:var(--text-muted);font-size:13px;font-weight:600;margin-bottom:14px;">교사, 학생, 과목명 아무거나 입력하세요</p>
-      <div class="search-wrapper no-print" style="margin:0 auto 14px;">
-        <span class="search-icon">🏫</span>
-        <input type="text" id="locSearch" class="search-input" placeholder="교사, 과목, 학생 이름 검색...">
+    <div class="view-filter-row no-print">
+      <div class="search-wrapper" style="margin:0;min-width:300px;flex:1;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="locSearch" class="search-input" placeholder="교사·과목·학생 검색">
       </div>
-      <div class="filter-bar no-print" style="justify-content:center;">
+      <div class="filter-bar">
         <div>
-          <label>🧑‍🏫 교사로 찾기</label>
+        <label>교사</label>
           <select id="locTeacher">
             <option value="">— 선택 —</option>
             ${teachers.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('')}
           </select>
         </div>
         <div>
-          <label>🏫 교실로 찾기</label>
+          <label>수업 장소</label>
           <select id="locRoom">
             <option value="">— 선택 —</option>
             ${rooms.map(r=>`<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('')}
@@ -1413,7 +2101,7 @@ function renderLocationTab(c){
         </div>
       </div>
     </div>
-    <div id="locResult" class="grid-layout"></div>`;
+    <div id="locResult"></div>`;
 
   const qEl = document.getElementById('locSearch');
   const tEl = document.getElementById('locTeacher');
@@ -1437,7 +2125,7 @@ function doLocSearch(q, mode){
         const ci = findClassroom(s.grade, sl, sj) || {};
         results.push({
           key:`S|${s.id}|${sl}|${sj}`,
-          badge:`👨‍🎓 ${s.name} (${s.id}·${s.grade})`,
+          badge:`학생 ${s.name} (${s.id}·${s.grade})`,
           slot:sl, subj:sj,
           teacher:ci.teacher||'미정', room:ci.room||'미정',
           color:'var(--accent)',
@@ -1451,7 +2139,7 @@ function doLocSearch(q, mode){
     const teacher = (c.teacher||'').toLowerCase();
     const subject = (c.subject||'').toLowerCase();
     const room = (c.room||'').toLowerCase();
-    if(mode==='teacher') return teacher === q;
+    if(mode==='teacher') return splitTeachers(c.teacher).some(name=>name.toLowerCase() === q);
     if(mode==='room') return room === q;
     return teacher.includes(q) || subject.includes(q) || room.includes(q);
   }).forEach(c=>{
@@ -1459,7 +2147,7 @@ function doLocSearch(q, mode){
     if(!results.find(r=>r.key===k)){
       results.push({
         key:k,
-        badge:`📚 [${c.grade}] 강좌 · ${c.count||0}명`,
+        badge:`강좌 [${c.grade}] · ${c.count||0}명`,
         slot:c.slot, subj:c.subject,
         teacher:c.teacher||'미정', room:c.room||'미정',
         color:'var(--violet)',
@@ -1468,35 +2156,38 @@ function doLocSearch(q, mode){
     }
   });
 
-  // 공통수업 검색 (scheduleData에서 슬롯 없는 수업)
-  // 교사·과목·반 조합 단위로 중복 제거하여 한 카드로 표시
+  // 공통수업 검색: 반과 H열 수업장소를 함께 보존한다.
   const commonMap = new Map();
   scheduleData.filter(r=>{
     if(r.slot) return false;  // 선택과목은 classroomData에서 이미 처리
     if(!r.subject || r.subject === '자율활동' || r.subject === '자습') return false;
     const teacher = (r.teacher||'').toLowerCase();
     const subject = (r.subject||'').toLowerCase();
-    if(mode==='teacher') return teacher === q;
-    if(mode==='room') return false;  // 공통수업은 교실 정보 없음
-    return teacher.includes(q) || subject.includes(q);
+    const room = (r.room||'').toLowerCase();
+    if(mode==='teacher') return splitTeachers(r.teacher).some(name=>name.toLowerCase() === q);
+    if(mode==='room') return room === q;
+    return teacher.includes(q) || subject.includes(q) || room.includes(q);
   }).forEach(r=>{
-    const key = `K|${r.grade}|${r.ban}|${r.subject}|${r.teacher}`;
+    const targetKey = r.targetBans?.length ? r.targetBans.join(',') : String(r.ban||'');
+    const key = `K|${r.grade}|${r.ban}|${targetKey}|${r.subject}|${r.teacher}|${r.room}`;
     if(!commonMap.has(key)){
-      commonMap.set(key, { grade:r.grade, ban:r.ban, subject:r.subject, teacher:r.teacher, hours:1 });
+      commonMap.set(key, { grade:r.grade, ban:r.ban, targetBans:r.targetBans||[], subject:r.subject, teacher:r.teacher, room:r.room, hours:1 });
     } else {
       commonMap.get(key).hours++;
     }
   });
   [...commonMap.values()].forEach(c=>{
+    const displayBans = c.targetBans.length ? c.targetBans : [c.ban];
+    const classLabel = `${c.grade}학년 ${displayBans.join('·')}반`;
     results.push({
-      key: `K|${c.grade}-${c.ban}|${c.subject}|${c.teacher}`,
-      badge: `🏫 [${c.grade}학년 ${c.ban}반] 공통 · 주 ${c.hours}시간`,
+      key: `K|${c.grade}-${c.ban}|${c.subject}|${c.teacher}|${c.room}`,
+      badge: `공통 [${classLabel}]${c.targetBans.length?` · 분반 ${c.ban}`:''} · 주 ${c.hours}시간`,
       slot: '공통',
       subj: c.subject,
       teacher: c.teacher || '미정',
-      room: '교실에서 수업',
+      room: c.room || '미정',
       color: '#10b981',
-      _grade: c.grade, _ban: c.ban
+      _grade: c.grade, _ban: displayBans[0]
     });
   });
 
@@ -1505,15 +2196,14 @@ function doLocSearch(q, mode){
     return;
   }
 
-  let h = `<div style="grid-column:1/-1;font-weight:800;margin-bottom:6px;">총 <span style="color:var(--accent);">${results.length}건</span></div>`;
+  let h = `<div class="section-head"><div class="section-head-title">수업 검색 결과</div><div class="section-head-meta">${results.length}건</div></div>
+    <div class="compact-table-wrap"><table class="compact-table">
+      <thead><tr><th>구분</th><th>과목</th><th class="col-person">담당 교사</th><th class="col-room">수업 장소</th><th class="col-slot">슬롯</th></tr></thead><tbody>`;
   results.forEach(r=>{
     const isCommon = r.slot === '공통';
     const slotLabel = isCommon
-      ? `<span class="badge" style="font-size:12px;background:#d1fae5;color:#065f46;border-color:#6ee7b7;">공통</span>`
-      : `<span class="badge" style="font-size:12px;" data-nav="slot" data-arg1="${escapeHtml(r.grade||'')}" data-arg2="${escapeHtml(r.slot)}">슬롯 ${escapeHtml(r.slot)}</span>`;
-    const roomLine = r.room === '교실에서 수업'
-      ? `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 각 반 교실</div>`
-      : `<div style="display:inline-block;padding:4px 11px;border-radius:8px;background:${r.color}15;color:${r.color};font-weight:800;margin-top:4px;font-size:14px;">📍 ${escapeHtml(r.room)}</div>`;
+      ? `<span class="badge">공통</span>`
+      : `<span class="slot-token" style="--slot-color:${r.color}" data-nav="slot" data-arg1="${escapeHtml(r.grade||'')}" data-arg2="${escapeHtml(r.slot)}">${escapeHtml(r.slot)}</span>`;
 
     // 과목 네비: 선택과목은 명렬표, 공통은 해당 반별 조회
     let subjAttrs = '';
@@ -1527,18 +2217,15 @@ function doLocSearch(q, mode){
     if(r._studentId) badgeAttrs = `data-nav="student" data-arg1="${escapeHtml(r._studentId)}"`;
     else if(isCommon && r._grade && r._ban) badgeAttrs = `data-nav="class" data-arg1="${escapeHtml(r._grade)}" data-arg2="${escapeHtml(r._ban)}"`;
 
-    h += `
-      <div class="card" style="border-top:4px solid ${r.color};padding:18px;">
-        <div style="font-size:12px;font-weight:800;color:${r.color};margin-bottom:6px;" ${badgeAttrs}>${escapeHtml(r.badge)}</div>
-        <div class="card-title" style="margin-bottom:10px;font-size:17px;">
-          <span ${subjAttrs}>${escapeHtml(r.subj)}</span> ${slotLabel}
-        </div>
-        <div style="font-size:13px;color:var(--text-muted);font-weight:600;line-height:1.8;">
-          <div>🧑‍🏫 <strong style="color:var(--text-main);" data-nav="teacher" data-arg1="${escapeHtml(r.teacher)}">${escapeHtml(r.teacher)}</strong></div>
-          ${roomLine}
-        </div>
-      </div>`;
+    h += `<tr>
+      <td class="muted-cell" data-label="구분"><span ${badgeAttrs}>${escapeHtml(r.badge)}</span></td>
+      <td class="subject-cell" data-label="과목"><span ${subjAttrs}>${escapeHtml(r.subj)}</span></td>
+      <td class="col-person" data-label="담당 교사">${renderTeacherLinks(r.teacher)}</td>
+      <td class="col-room" data-label="수업 장소">${escapeHtml(r.room)}</td>
+      <td class="col-slot" data-label="슬롯">${slotLabel}</td>
+    </tr>`;
   });
+  h += `</tbody></table></div>`;
   rd.innerHTML = h;
 }
 </script>
