@@ -190,7 +190,11 @@ tbody tr.pick{background:var(--key-bg);box-shadow:inset 3px 0 0 var(--key)}
 td button:hover{color:var(--key);text-decoration:underline;text-underline-offset:3px}
 .num{text-align:right;white-space:nowrap}
 .dash{color:var(--ink-3);font-size:var(--f-xs)}
-.c-s{width:52px}.c-id{width:74px}.c-n{width:90px}.c-p{width:110px}.c-r{width:130px}.c-c{width:62px}
+.c-s{width:52px}.c-id{width:74px}.c-n{width:90px}.c-p{width:116px}.c-r{width:148px}.c-c{width:56px}
+/* 과목·교사·교실 표는 한 행이 한 줄이어야 눈이 가로로 미끄러진다.
+   넘치면 접지 말고 줄인다. 온전한 값은 툴팁에 있다. */
+.line td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line td button{display:inline}
 tfoot td{background:var(--bg-2);font-weight:700;border-top:1px solid var(--line-2)}
 
 /* ---- 시간표 ---- 화면과 인쇄가 같은 얼개를 쓴다.
@@ -199,30 +203,39 @@ tfoot td{background:var(--bg-2);font-weight:700;border-top:1px solid var(--line-
 .tt{
   display:grid;grid-auto-flow:column;
   grid-template-columns:40px;grid-auto-columns:minmax(0,1fr);
-  grid-template-rows:auto repeat(var(--p,7),minmax(54px,auto));
+  grid-template-rows:auto repeat(var(--p,7),minmax(38px,auto));
   gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;
 }
 .tt-h,.tt-d{background:var(--bg-2);padding:5px;text-align:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-2)}
 .tt-p{background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-3)}
 /* 빈 칸에 음영을 넣으면 수업 조각의 옅은 색과 섞여 오히려 구분이 죽는다. 괘선이 칸을 나눈다. */
 .tt-c{background:var(--bg);padding:3px;min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center}
-/* 수업 조각 — 겉은 칸, 안에 누를 것을 둔다. 단추 안에 단추를 넣지 않는다. */
+/* 수업 조각 — 과목·교사·교실을 한 줄에 잇는다. 자리가 모자라면 뒤에서부터 줄인다.
+   겉은 칸, 안에 누를 것을 둔다. 단추 안에 단추를 넣지 않는다. */
 .cx{
-  display:block;border-radius:2px;overflow:hidden;
+  display:flex;align-items:baseline;gap:5px;padding:2px 5px;border-radius:2px;overflow:hidden;
   border-left:3px solid hsl(var(--dh,212) calc(var(--ds,7%) + var(--edge-s)) var(--edge-l));
   background:hsl(var(--dh,212) calc(var(--ds,7%) + var(--soft-s)) var(--soft-l));
 }
 .cx-h{
-  display:block;width:100%;text-align:left;padding:2px 5px 0;
-  font-size:var(--f-sm);font-weight:700;line-height:1.3;overflow-wrap:anywhere;
+  flex:0 1 auto;min-width:0;text-align:left;padding:0;
+  font-size:var(--f-sm);font-weight:700;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-button.cx-h:hover{background:hsl(var(--dh,212) calc(var(--ds,7%) + var(--tint-s)) var(--tint-l))}
+button.cx-h:hover{color:var(--key);text-decoration:underline;text-underline-offset:2px}
 .cx i{
-  display:block;font-style:normal;padding:0 5px 2px;
-  font-size:var(--f-xs);color:var(--ink-2);line-height:1.35;overflow-wrap:anywhere;
+  flex:1 1 0;min-width:0;font-style:normal;
+  font-size:var(--f-xs);color:var(--ink-2);line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.cx i button{text-decoration:underline;text-underline-offset:2px}
+/* 잘릴 때 말줄임이 제대로 붙게 inline 으로 흐르게 둔다 */
+.cx i button{display:inline;text-decoration:underline;text-underline-offset:2px}
+.cx i button:hover{color:var(--key)}
 .cx .tag{margin-right:3px}
+/* 분반 묶음만은 여러 줄이 본디 모양이다 */
+.cx.multi{display:block;padding:2px 5px}
+.cx.multi .cx-h{display:block;white-space:normal;overflow:visible}
+.cx.multi i{display:block;white-space:normal;overflow:visible}
 .cx-d{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:0 6px;align-items:baseline}
 .cx-d span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
@@ -379,6 +392,8 @@ kbd{
   .frame tbody tr:last-child{border-bottom:0}
   .frame td{display:block;grid-column:1;border:0;padding:0;width:auto}
   .frame td:empty{display:none}
+  /* 카드로 펴진 뒤에는 줄일 이유가 없다 */
+  .frame .line td{white-space:normal;overflow:visible;text-overflow:clip}
   .frame td[data-l]:not(.mn)::before{content:attr(data-l) " ";color:var(--ink-3);font-weight:700;font-size:var(--f-xs)}
   .frame td.mn{font-weight:700;font-size:var(--f-md)}
   .frame td.rt-side{grid-column:2;grid-row:1;text-align:right}
@@ -1207,16 +1222,18 @@ function ttCell(e, opts = {}){
     : e.grade && (e.ban || e.bans.length) ? `data-cls="${e.grade}-${e.bans.length ? e.bans[0] : e.ban}"` : "";
   const head = `${e.slot && !SPECIAL[e.subject] ? slotTag(e.slot) : ""}${hl(e.subject)}${
     e.guess ? '<span class="dash"> 추정</span>' : ""}`;
-  return `<div class="cx" style="${t}">${
-    nav ? `<button type="button" class="cx-h" ${nav}>${head}</button>` : `<b class="cx-h">${head}</b>`}
-    ${meta ? `<i>${meta}</i>` : ""}</div>`;
+  /* 줄여서 보여 주므로 온전한 값은 툴팁으로 남긴다 */
+  const full = [e.subject, e.teacher, opts.noRoom ? "" : e.room].filter(Boolean).join(" · ");
+  return `<div class="cx" style="${t}" title="${esc(full)}">${
+    nav ? `<button type="button" class="cx-h" ${nav}>${head}</button>` : `<b class="cx-h">${head}</b>`}${
+    meta ? `<i>${meta}</i>` : ""}</div>`;
 }
 function mergedCell(list){
   const rows = [...list].sort((a, b) => Number(splitNo(a)) - Number(splitNo(b))).map(e => `
     <span class="cx-d"><span>분반 ${esc(splitNo(e))}</span>
       <span>${S.show.teacher && e.teacher ? teacherLinks(e.teacher) : ""}</span>
       <span>${S.show.room ? hl(e.room) : ""}</span></span>`).join("");
-  return `<div class="cx" style="${FLAT}"><b class="cx-h">${hl(list[0].subject)}</b><i>${rows}</i></div>`;
+  return `<div class="cx multi" style="${FLAT}"><b class="cx-h">${hl(list[0].subject)}</b><i>${rows}</i></div>`;
 }
 
 /* ---- 학생 ---- */
@@ -1251,9 +1268,9 @@ function drawCourse(){
       .map(t => `${t.day}${t.period}`));
     return `<section><h2 class="cap" id="slot-${esc(slot)}">${slotTag(slot)}
         <span>${list.length}개 강좌 · ${total}명${when.length ? ` · ${when.join(" ")}` : " · 시간 없음"}</span></h2>
-      <div class="frame"><table>
+      <div class="frame"><table class="line">
         <thead><tr><th>과목</th><th class="c-p">교사</th><th class="c-r">장소</th><th class="c-c num">인원</th></tr></thead>
-        <tbody>${list.map(c => `<tr class="hit" data-c="${esc(c.id)}">
+        <tbody>${list.map(c => `<tr class="hit" data-c="${esc(c.id)}" title="${esc(`${c.subject} · ${c.teacher || "미정"} · ${c.room || "미정"}`)}">
           <td class="mn" data-l="과목">${hl(c.subject)}${c.ghost ? '<span class="dash"> 강좌표 없음</span>' : ""}</td>
           <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
           <td class="c-r" data-l="장소">${roomLinks(c.room)}</td>
@@ -1309,9 +1326,9 @@ function drawTeacher(){
       `<button type="button" data-cls="${esc(k)}">${esc(k)}반</button>`).join("")}</div>` : "")
     + (rooms.length ? `<div class="chips" style="margin-bottom:10px"><b>장소</b>${rooms.map(r =>
       `<button type="button" data-rm="${esc(r)}">${hl(r)}</button>`).join("")}</div>` : "");
-  const courses = mine.length ? `<h2 class="cap">담당 강좌</h2><div class="frame"><table>
+  const courses = mine.length ? `<h2 class="cap">담당 강좌</h2><div class="frame"><table class="line">
     <thead><tr><th class="c-s">슬롯</th><th>과목</th><th class="c-r">장소</th><th class="c-c num">인원</th></tr></thead>
-    <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}">
+    <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}" title="${esc(`${c.subject} · ${c.room || "미정"}`)}">
       <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td>
       <td class="mn" data-l="과목">${gLabel(c.grade)} ${hl(c.subject)}</td>
       <td class="c-r" data-l="장소">${roomLinks(c.room)}</td>
@@ -1374,9 +1391,9 @@ function drawRoom(){
   const grid = entries.length
     ? ttHTML(entries, { bans:true, noRoom:true })
     : '<p class="dash">반별시간표에 이 장소로 적힌 수업이 없습니다</p>';
-  const courses = mine.length ? `<h2 class="cap">여기서 하는 선택과목</h2><div class="frame"><table>
+  const courses = mine.length ? `<h2 class="cap">여기서 하는 선택과목</h2><div class="frame"><table class="line">
     <thead><tr><th class="c-s">슬롯</th><th>과목</th><th class="c-p">교사</th><th class="c-c num">인원</th></tr></thead>
-    <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}">
+    <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}" title="${esc(`${c.subject} · ${c.teacher || "미정"}`)}">
       <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td>
       <td class="mn" data-l="과목">${gLabel(c.grade)} ${hl(c.subject)}</td>
       <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
@@ -1522,9 +1539,9 @@ function fillDetail(){
         <dt>학급</dt><dd>${s.ban ? `${s.grade}학년 ${s.ban}반` : "미정"}</dd>
         <dt>선택과목</dt><dd>${s.courses.length}개</dd></dl>
       <h3>주간 시간표</h3>${entries.length ? ttHTML(entries) : '<p class="dash">시간표 자료가 없습니다</p>'}
-      <h3>선택과목</h3>${s.courses.length ? `<div class="frame"><table>
+      <h3>선택과목</h3>${s.courses.length ? `<div class="frame"><table class="line">
         <thead><tr><th class="c-s">슬롯</th><th>과목</th><th class="c-p">교사</th><th class="c-r">장소</th></tr></thead>
-        <tbody>${s.courses.map(c => `<tr class="hit" data-c="${esc(c.id)}">
+        <tbody>${s.courses.map(c => `<tr class="hit" data-c="${esc(c.id)}" title="${esc(`${c.subject} · ${c.teacher || "미정"} · ${c.room || "미정"}`)}">
           <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td><td class="mn" data-l="과목">${esc(c.subject)}</td>
           <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
           <td class="c-r" data-l="장소">${roomLinks(c.room)}</td></tr>`).join("")}</tbody></table></div>`
