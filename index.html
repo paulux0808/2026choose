@@ -162,7 +162,7 @@ mark{background:#FCE79A;color:#17181C;padding:0 1px}
 
 main{padding:12px}
 .none{padding:44px 12px;text-align:center;color:var(--ink-3);font-size:var(--f-sm)}
-.frame{border:1px solid var(--line);border-radius:var(--r)}
+.frame{border:1px solid var(--line-2);border-radius:var(--r)}
 .cap{display:flex;align-items:baseline;gap:8px;font-size:var(--f-md);font-weight:700;margin:16px 0 6px}
 .cap:first-child{margin-top:0}
 .cap span{font-size:var(--f-xs);font-weight:600;color:var(--ink-3)}
@@ -177,7 +177,8 @@ th{
   position:sticky;top:var(--top-h,0px);z-index:2;white-space:nowrap;
 }
 td{padding:5px 8px;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
-tr:last-child td{border-bottom:0}
+/* 목록 표에서만 마지막 줄의 밑줄을 뺀다. 종이와 명렬표는 테두리가 닫혀 있어야 한다. */
+.frame tr:last-child td{border-bottom:0}
 tbody tr.pick{background:var(--key-bg);box-shadow:inset 3px 0 0 var(--key)}
 .hit{cursor:pointer}
 .hit:hover{background:var(--bg-2)}
@@ -193,12 +194,12 @@ tfoot td{background:var(--bg-2);font-weight:700;border-top:1px solid var(--line-
   display:grid;grid-auto-flow:column;
   grid-template-columns:40px;grid-auto-columns:minmax(0,1fr);
   grid-template-rows:auto repeat(var(--p,7),minmax(54px,auto));
-  gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;
 }
 .tt-h,.tt-d{background:var(--bg-2);padding:5px;text-align:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-2)}
 .tt-p{background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-3)}
+/* 빈 칸에 음영을 넣으면 수업 조각의 옅은 색과 섞여 오히려 구분이 죽는다. 괘선이 칸을 나눈다. */
 .tt-c{background:var(--bg);padding:3px;min-width:0;display:flex;flex-direction:column;gap:2px;justify-content:center}
-.tt-c.tt-x{background:var(--bg-2)}
 /* 수업 조각 — 겉은 칸, 안에 누를 것을 둔다. 단추 안에 단추를 넣지 않는다. */
 .cx{
   display:block;border-radius:2px;overflow:hidden;
@@ -219,12 +220,16 @@ button.cx-h:hover{background:hsl(var(--dh,212) calc(var(--ds,7%) + var(--tint-s)
 .cx-d{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:0 6px;align-items:baseline}
 .cx-d span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ---- 명렬표 ---- */
-.rt{border:1px solid var(--line);border-radius:var(--r);overflow:auto}
+/* ---- 명렬표 ---- 옆으로 굴러야 해서 스스로 스크롤 상자가 된다.
+   그래서 머리줄은 페이지가 아니라 이 상자를 기준으로 붙는다. top 을 0 으로 두지 않으면
+   머리줄이 --top-h 만큼 밀려 내려가 첫 몇 줄을 덮는다. */
+.rt{border:1px solid var(--line-2);border-radius:var(--r);overflow:auto}
 .rt table{table-layout:fixed;min-width:640px}
-.rt th,.rt td{border-right:1px solid var(--line);text-align:center;vertical-align:middle}
+.rt th{top:0;border-bottom:1px solid var(--line-2)}
+.rt th,.rt td{border-right:1px solid var(--line-2);text-align:center;vertical-align:middle}
 .rt th:last-child,.rt td:last-child{border-right:0}
-.rt td{height:30px;padding:2px 4px;font-size:var(--f-sm)}
+.rt td{height:30px;padding:2px 4px;font-size:var(--f-sm);border-bottom:1px solid var(--line-2)}
+.rt tbody tr:last-child td{border-bottom:0}
 .rt .hd{padding:2px}
 .rt .hd input{
   width:100%;height:26px;padding:0 3px;border:0;border-bottom:1px solid transparent;background:transparent;
@@ -411,6 +416,11 @@ kbd{
   <p id="alertText"></p>
   <button class="btn btn-s" data-a="reload" type="button">다시 시도</button>
   <button class="btn btn-s btn-q" data-a="alert-x" type="button">닫기</button>
+</div>
+<div class="strip strip-w" id="gap" hidden role="status">
+  <p id="gapText"></p>
+  <button class="btn btn-s" data-a="src" type="button">자료 출처</button>
+  <button class="btn btn-s btn-q" data-a="gap-x" type="button">닫기</button>
 </div>
 
 <main id="main" tabindex="-1"><div id="view"></div>
@@ -630,6 +640,7 @@ const IX = { student:new Map(), course:new Map(), byKey:new Map(), teachers:[], 
 const SRC = Object.fromEntries(CONFIG.SHEETS.map(x =>
   [x.key, { name:x.name, gid:x.gid, rows:0, at:0, error:"", flags:[] }]));
 const CROSS = [];
+let GAP = "", gapShut = false;
 const sheetLink = gid => `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/edit#gid=${gid}`;
 
 /* gviz 는 권한 오류도 HTTP 200 으로 준다. 모양을 직접 확인해야 한다. */
@@ -773,19 +784,23 @@ async function readCourses(sheet){
   });
   if(!groups.length) throw new Error("'학생수' 줄을 찾지 못했습니다 (강좌표 형식 확인)");
 
+  /* 학생수 줄까지 같이 받는다. 담당자가 적어 둔 인원이라, 우리가 센 인원과 맞춰 보면
+     신청 시트가 덜 읽혔는지(필터·숨긴 행) 드러난다. 요청 수는 늘지 않는다. */
   const blocks = await Promise.all(groups.map(g =>
-    fetchTable({ gid:sheet.gid, range:`C${g.at + 1}:${sheet.lastCol}${g.at + 2}`, headers:false })
+    fetchTable({ gid:sheet.gid, range:`C${g.at}:${sheet.lastCol}${g.at + 2}`, headers:false })
       .then(t => ({ g, t }))));
 
   const out = [];
   for(const { g, t } of blocks){
-    const tRow = t.rows[0], rRow = t.rows[1];
-    const n = Math.max(tRow?.c?.length || 0, rRow?.c?.length || 0);
+    const nRow = t.rows[0], tRow = t.rows[1], rRow = t.rows[2];
+    const n = Math.max(tRow?.c?.length || 0, rRow?.c?.length || 0, nRow?.c?.length || 0);
     for(let i = 0; i < n; i++){
       const subject = subjects[i + 2];
       const teacher = cell(tRow, i), place = room(cell(rRow, i), sheet.grade);
       if(!subject || (!teacher && !place)) continue;
-      out.push({ grade:sheet.grade, slot:g.slot, subject, teacher, room:place });
+      const said = cell(nRow, i);
+      out.push({ grade:sheet.grade, slot:g.slot, subject, teacher, room:place,
+                 said:/^\d+$/.test(said) ? +said : null });
     }
     if(!n && flags.length < 60) flags.push(`슬롯 ${g.slot} · 교사·장소 줄이 비어 있습니다`);
   }
@@ -910,9 +925,34 @@ function check(){
   const add = t => { if(CROSS.length < 200) CROSS.push(t); };
   const name = c => `${gLabel(c.grade)} ${c.slot} · ${c.subject}`;
 
+  /* 강좌표가 적어 둔 학생수와 신청 시트에서 센 인원. 어긋나면 어느 한쪽이 덜 읽힌 것이다.
+     신청 시트에 기본 필터가 걸려 있으면 gviz 는 보이는 행만 주므로 여기서 드러난다. */
+  const tally = new Map();
+  for(const c of M.courses){
+    if(c.said == null) continue;
+    const t = tally.get(c.grade) || { said:0, count:0 };
+    t.said += c.said; t.count += c.count;
+    tally.set(c.grade, t);
+  }
+  const short = [];
+  for(const [g, t] of [...tally].sort((a, b) => a[0] - b[0]))
+    if(t.said !== t.count){
+      add(`${gLabel(g)} — 강좌표 학생수 합계 ${t.said}명, 신청 시트에서 센 인원 ${t.count}명.`
+        + (t.count < t.said ? " 신청 시트에 필터가 걸려 있거나 숨긴 행이 있는지 확인하세요." : ""));
+      if(t.count < t.said) short.push(`${gLabel(g)} ${t.said - t.count}명`);
+    }
+  /* 조용히 지나가면 안 되는 어긋남이다. 접힌 패널 말고 화면 위에 내건다. */
+  const was = GAP;
+  GAP = short.length
+    ? `신청 시트에서 ${short.join(", ")}이 덜 읽혔습니다. 시트에 필터가 걸려 있거나 숨긴 행이 있는지 확인하세요.`
+    : "";
+  if(GAP !== was) gapShut = false;   /* 내용이 바뀌면 닫아 둔 것을 다시 편다 */
+
   for(const c of M.courses){
     if(c.ghost) add(`${name(c)} — 강좌표에 없습니다 (신청 ${c.count}명)`);
     else if(!c.count) add(`${name(c)} — 신청한 학생이 없습니다`);
+    else if(c.said != null && c.said !== c.count)
+      add(`${name(c)} — 강좌표 학생수 ${c.said}명, 신청 시트에서 센 인원 ${c.count}명`);
     if(!c.ghost && !realTeacher(c.teacher)) add(`${name(c)} — 담당 교사가 비어 있습니다`);
     if(!c.times.length) add(`${name(c)} — 시간표에서 시간을 찾지 못했습니다`);
   }
@@ -1349,6 +1389,8 @@ function draw({ keep = false } = {}){
   drawTabs();
   drawTools();
   drawSource();
+  $("#gapText").textContent = GAP;
+  $("#gap").hidden = !GAP || gapShut;
 
   let r;
   if(!loaded) r = { n:0, html:nothing(loading ? "불러오는 중" : "불러온 자료 없음") };
@@ -1830,6 +1872,11 @@ document.addEventListener("click", ev => {
   switch(t.dataset.a){
     case "reload": reload(); break;
     case "alert-x": hideWarn(); break;
+    case "gap-x": gapShut = true; $("#gap").hidden = true; break;
+    case "src":
+      $("#src").open = true;
+      $("#src").scrollIntoView({ block:"start", behavior:"smooth" });
+      break;
     case "close": t.closest("dialog")?.close(); break;
     case "open-print": openPrint(); break;
     case "print": doPrint(); break;
