@@ -166,6 +166,10 @@ main{padding:12px}
 .cap{display:flex;align-items:baseline;gap:8px;font-size:var(--f-md);font-weight:700;margin:16px 0 6px}
 .cap:first-child{margin-top:0}
 .cap span{font-size:var(--f-xs);font-weight:600;color:var(--ink-3)}
+/* 넓은 화면에서 한 줄이 화면 끝까지 늘어나면 과목과 교사·장소·인원이 멀어져 눈이 헛짚는다.
+   묶음을 두 단으로 접어 한 줄을 짧게 만든다. 좁아지면 저절로 한 단이 된다. */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,31rem),1fr));gap:0 18px;align-items:start}
+.two > section{margin-bottom:14px;min-width:0}
 .sum{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:var(--f-sm);color:var(--ink-2);margin:0 0 10px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
 .sum b{color:var(--ink);font-weight:700}
 
@@ -182,6 +186,8 @@ td{padding:5px 8px;vertical-align:top;border-bottom:1px solid var(--line);overfl
 tbody tr.pick{background:var(--key-bg);box-shadow:inset 3px 0 0 var(--key)}
 .hit{cursor:pointer}
 .hit:hover{background:var(--bg-2)}
+/* 교사·장소는 눌러서 옮겨 갈 수 있다. 평소엔 글자로 두고 손이 닿을 때만 드러낸다. */
+td button:hover{color:var(--key);text-decoration:underline;text-underline-offset:3px}
 .num{text-align:right;white-space:nowrap}
 .dash{color:var(--ink-3);font-size:var(--f-xs)}
 .c-s{width:52px}.c-id{width:74px}.c-n{width:90px}.c-p{width:110px}.c-r{width:130px}.c-c{width:62px}
@@ -503,8 +509,8 @@ const VIEWS = {
   course: { label:"강좌",   paper:true  },
   klass:  { label:"학급",   paper:true  },
   teacher:{ label:"교사",   paper:true  },
-  roster: { label:"명렬표", paper:true  },
-  find:   { label:"찾기",   paper:false }
+  room:   { label:"장소",   paper:true  },
+  roster: { label:"명렬표", paper:true  }
 };
 const VK = Object.keys(VIEWS);
 const HEADS = {
@@ -597,7 +603,7 @@ const S = {
   grade0:0,                      /* 학생 — 0이면 전 학년 */
   grade:2,                       /* 강좌·명렬표 */
   cg:2, ban:0,                   /* 학급 */
-  teacher:"", course:"",
+  teacher:"", room:"", course:"",
   cols:10, head:"date",
   show:{ teacher:true, room:true },
   print:{ teacher:true, room:true, count:true }
@@ -614,6 +620,7 @@ function loadPrefs(){
   if([1,2,3].includes(p.cg)) S.cg = p.cg;
   if(Number.isInteger(p.ban) && p.ban >= 0 && p.ban <= 20) S.ban = p.ban;
   if(typeof p.teacher === "string") S.teacher = p.teacher;
+  if(typeof p.room === "string") S.room = p.room;
   if(typeof p.course === "string") S.course = p.course;
   if(Number.isInteger(p.cols) && p.cols >= 1 && p.cols <= 30) S.cols = p.cols;
   if(Object.hasOwn(HEADS, p.head)) S.head = p.head;
@@ -623,7 +630,7 @@ function loadPrefs(){
 }
 const savePrefs = () => write(PREFS, {
   view:S.view, theme:S.theme, fs:S.fs, grade0:S.grade0, grade:S.grade, cg:S.cg, ban:S.ban,
-  teacher:S.teacher, course:S.course, cols:S.cols, head:S.head, heads,
+  teacher:S.teacher, room:S.room, course:S.course, cols:S.cols, head:S.head, heads,
   show:S.show, print:S.print
 });
 function applyPrefs(){
@@ -1094,6 +1101,12 @@ const teacherLinks = v => {
   if(!list.length || (list.length === 1 && list[0] === "미정")) return '<span class="dash">미정</span>';
   return list.map(n => `<button type="button" data-t="${esc(n)}">${hl(n)}</button>`).join(" / ");
 };
+/* 장소 칸은 '수학실 · 과학실' 처럼 여럿일 수 있다. 하나씩 눌러 그 교실로 간다. */
+const roomLinks = v => {
+  const list = String(v || "").split(" · ").map(x => x.trim()).filter(Boolean);
+  if(!list.length) return '<span class="dash">미정</span>';
+  return list.map(r => `<button type="button" data-rm="${esc(r)}">${hl(r)}</button>`).join(" · ");
+};
 
 function drawTabs(){
   $("#tabs").innerHTML = VK.map(k =>
@@ -1120,6 +1133,11 @@ function drawTools(){
       <select class="fld" id="tsel"><option value="">— 고르기 —</option>${IX.teachers.map(t =>
         `<option${S.teacher === t ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`);
   }
+  if(v === "room"){
+    out.push(`<label class="lbl">장소
+      <select class="fld" id="rsel"><option value="">— 고르기 —</option>${IX.rooms.map(r =>
+        `<option${S.room === r ? " selected" : ""}>${esc(r)}</option>`).join("")}</select></label>`);
+  }
   if(v === "roster"){
     out.push(`<label class="lbl">강좌
       <select class="fld" id="csel"><option value="">— 고르기 —</option>${M.courses.map(c =>
@@ -1130,9 +1148,10 @@ function drawTools(){
       <select class="fld" id="head">${Object.entries(HEADS).map(([k, [l]]) =>
         `<option value="${k}"${S.head === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`);
   }
-  if(["klass", "teacher", "student"].includes(v))
+  /* 장소 화면은 온 칸이 같은 교실이라 장소 토글이 할 일이 없다 */
+  if(["klass", "teacher", "student", "room"].includes(v))
     out.push(`<div class="opts hide-s" role="group" aria-label="시간표 표시">${
-      opt("교사", "show", "teacher")}${opt("장소", "show", "room")}</div>`);
+      opt("교사", "show", "teacher")}${v === "room" ? "" : opt("장소", "show", "room")}</div>`);
 
   out.push('<span class="grow"></span>');
   if(VIEWS[v].paper) out.push(`<button class="btn" data-a="open-print" type="button"${loaded ? "" : " disabled"}>인쇄</button>`);
@@ -1175,8 +1194,9 @@ function ttMeta(e, opts){
   }
   if(e.bans.length && e.ban && !opts.bans) bits.push(`분반 ${splitNo(e)}`);
   if(S.show.teacher && e.teacher) bits.push(teacherLinks(e.teacher));
-  /* 제 교실에서 하는 수업에 '2학년 2반'을 또 적을 이유는 없다 */
-  if(S.show.room && e.room && !own) bits.push(hl(e.room));
+  /* 제 교실에서 하는 수업에 '2학년 2반'을 또 적을 이유는 없다.
+     장소 화면에서는 온 칸이 같은 교실이므로 아예 뺀다. */
+  if(S.show.room && e.room && !own && !opts.noRoom) bits.push(roomLinks(e.room));
   return bits.join(" · ");
 }
 function ttCell(e, opts = {}){
@@ -1229,18 +1249,18 @@ function drawCourse(){
     const when = uniq(M.times.filter(t => t.grade === S.grade && t.slot === slot.charAt(0))
       .sort((a, b) => (DAY_IX.get(a.day) - DAY_IX.get(b.day)) || (a.period - b.period))
       .map(t => `${t.day}${t.period}`));
-    return `<h2 class="cap" id="slot-${esc(slot)}">${slotTag(slot)}
+    return `<section><h2 class="cap" id="slot-${esc(slot)}">${slotTag(slot)}
         <span>${list.length}개 강좌 · ${total}명${when.length ? ` · ${when.join(" ")}` : " · 시간 없음"}</span></h2>
       <div class="frame"><table>
         <thead><tr><th>과목</th><th class="c-p">교사</th><th class="c-r">장소</th><th class="c-c num">인원</th></tr></thead>
         <tbody>${list.map(c => `<tr class="hit" data-c="${esc(c.id)}">
           <td class="mn" data-l="과목">${hl(c.subject)}${c.ghost ? '<span class="dash"> 강좌표 없음</span>' : ""}</td>
           <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
-          <td class="c-r" data-l="장소">${c.room ? hl(c.room) : '<span class="dash">미정</span>'}</td>
+          <td class="c-r" data-l="장소">${roomLinks(c.room)}</td>
           <td class="c-c num rt-side" data-l="인원">${c.count}</td></tr>`).join("")}</tbody>
-      </table></div>`;
+      </table></div></section>`;
   }).join("");
-  return { n:rows.length, html };
+  return { n:rows.length, html:`<div class="two">${html}</div>` };
 }
 
 /* ---- 학급 ---- */
@@ -1288,13 +1308,13 @@ function drawTeacher(){
   const chips = (classes.length ? `<div class="chips" style="margin-bottom:6px"><b>학급</b>${classes.map(k =>
       `<button type="button" data-cls="${esc(k)}">${esc(k)}반</button>`).join("")}</div>` : "")
     + (rooms.length ? `<div class="chips" style="margin-bottom:10px"><b>장소</b>${rooms.map(r =>
-      `<span>${hl(r)}</span>`).join("")}</div>` : "");
+      `<button type="button" data-rm="${esc(r)}">${hl(r)}</button>`).join("")}</div>` : "");
   const courses = mine.length ? `<h2 class="cap">담당 강좌</h2><div class="frame"><table>
     <thead><tr><th class="c-s">슬롯</th><th>과목</th><th class="c-r">장소</th><th class="c-c num">인원</th></tr></thead>
     <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}">
       <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td>
       <td class="mn" data-l="과목">${gLabel(c.grade)} ${hl(c.subject)}</td>
-      <td class="c-r" data-l="장소">${c.room ? hl(c.room) : '<span class="dash">미정</span>'}</td>
+      <td class="c-r" data-l="장소">${roomLinks(c.room)}</td>
       <td class="c-c num rt-side" data-l="인원">${c.count}</td></tr>`).join("")}</tbody></table></div>` : "";
   return { n:entries.length, html:head + chips + ttHTML(entries, { bans:true }) + courses };
 }
@@ -1319,7 +1339,7 @@ function drawRoster(){
   return { n:list.length, html:`<div class="sum">
       <span>${slotTag(c.slot)} <b>${esc(c.subject)}</b></span>
       <span>${gLabel(c.grade)}</span><span>교사 ${teacherLinks(c.teacher)}</span>
-      <span>장소 <b>${esc(c.room || "미정")}</b></span><span>인원 <b>${c.count}</b>명</span></div>
+      <span>장소 ${roomLinks(c.room)}</span><span>인원 <b>${c.count}</b>명</span></div>
     ${spread ? `<div class="chips" style="margin-bottom:10px">${spread}</div>` : ""}
     <div class="rt"><table>
       <thead><tr><th class="c-1">연번</th><th class="c-2">학번</th><th class="c-3">이름</th>
@@ -1332,53 +1352,36 @@ function drawRoster(){
     </table></div>` };
 }
 
-/* ---- 찾기 ---- */
-function drawFind(){
-  if(!terms().length) return { n:0, html:nothing("학생·과목·교사·장소를 한 번에 찾습니다") };
-  const students = M.students.filter(s => hit(s.id, s.name)).slice(0, 60);
-  const courses = M.courses.filter(c => hit(c.slot, c.subject, c.teacher, c.room)).slice(0, 80);
-  const teachers = IX.teachers.filter(t => hit(t));
-  const rooms = IX.rooms.filter(r => hit(r));
-  /* 공통수업은 같은 과목·교사·장소끼리 묶어 시수로 센다 */
-  const common = new Map();
-  for(const r of M.lessons){
-    if(r.slot || !hit(r.subject, r.teacher, r.room)) continue;
-    const k = `${r.grade}|${r.ban}|${r.subject}|${r.teacher}|${r.room}`;
-    if(!common.has(k)) common.set(k, { ...r, n:0 });
-    common.get(k).n++;
-  }
-  const n = students.length + courses.length + common.size + teachers.length + rooms.length;
-  if(!n) return { n:0, html:nothing(`"${S.q.trim()}" 결과 없음`) };
+/* ---- 장소 ---- 교사 화면과 같은 얼개. 이 교실을 언제 누가 쓰는지 한 판에 본다. */
+function drawRoom(){
+  if(!S.room) return { n:0, html:nothing("위에서 장소를 고르세요") };
+  const entries = M.lessons.filter(r => r.room === S.room);
+  const mine = M.courses.filter(c => c.room.split(" · ").includes(S.room));
+  if(!entries.length && !mine.length) return { n:0, html:nothing(`${S.room} 을(를) 쓰는 수업이 없습니다`) };
 
-  const block = (title, count, head, body) => count ? `<h2 class="cap">${title} <span>${count}</span></h2>
-    <div class="frame"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : "";
-
-  return { n, html:
-    (teachers.length || rooms.length ? `<div class="chips" style="margin-bottom:10px">${
-      teachers.map(t => `<button type="button" data-t="${esc(t)}">${hl(t)}</button>`).join("")}${
-      rooms.map(r => `<span>${hl(r)}</span>`).join("")}</div>` : "")
-    + block("학생", students.length, '<th class="c-id">학번</th><th class="c-n">이름</th><th class="c-n">학급</th><th>선택과목</th>',
-      students.map(s => `<tr class="hit" data-u="${esc(s.id)}">
-        <td class="c-id" data-l="학번">${hl(s.id)}</td><td class="c-n mn" data-l="이름">${hl(s.name)}</td>
-        <td class="c-n" data-l="학급">${s.ban ? `${s.grade}학년 ${s.ban}반` : "—"}</td>
-        <td data-l="선택과목">${s.courses.map(c => `${slotTag(c.slot)} ${esc(c.subject)}`).join(" · ")}</td></tr>`).join(""))
-    + block("선택과목 강좌", courses.length, '<th class="c-s">슬롯</th><th>과목</th><th class="c-p">교사</th><th class="c-r">장소</th><th class="c-c num">인원</th>',
-      courses.map(c => `<tr class="hit" data-c="${esc(c.id)}">
-        <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td>
-        <td class="mn" data-l="과목">${gLabel(c.grade)} ${hl(c.subject)}</td>
-        <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
-        <td class="c-r" data-l="장소">${hl(c.room)}</td>
-        <td class="c-c num rt-side" data-l="인원">${c.count}</td></tr>`).join(""))
-    + block("공통 수업", common.size, '<th class="c-n">학급</th><th>과목</th><th class="c-p">교사</th><th class="c-r">장소</th><th class="c-c num">시수</th>',
-      [...common.values()].map(r => {
-        const bans = r.bans.length ? r.bans : (r.ban ? [r.ban] : []);
-        return `<tr class="hit" data-cls="${r.grade}-${bans[0] || ""}">
-          <td class="c-n" data-l="학급">${r.grade}-${bans.join("·")}반</td>
-          <td class="mn" data-l="과목">${hl(r.subject)}</td>
-          <td class="c-p" data-l="교사">${teacherLinks(r.teacher)}</td>
-          <td class="c-r" data-l="장소">${hl(r.room)}</td>
-          <td class="c-c num rt-side" data-l="시수">${r.n}</td></tr>`;
-      }).join("")) };
+  const teachers = uniq(entries.flatMap(e => teachersOf(e.teacher)).filter(realTeacher));
+  const classes = uniq(entries.flatMap(e =>
+    (e.bans.length ? e.bans : (e.ban ? [e.ban] : [])).map(b => `${e.grade}-${b}`))).sort();
+  const head = `<div class="sum">
+    <span>주 <b>${entries.length}</b>시간</span>
+    <span>과목 <b>${uniq(entries.map(e => e.subject)).length}</b></span>
+    <span>교사 <b>${teachers.length}</b></span>
+    <span>선택과목 <b>${mine.length}</b>강좌 · <b>${mine.reduce((a, c) => a + c.count, 0)}</b>명</span></div>`;
+  const chips = (teachers.length ? `<div class="chips" style="margin-bottom:6px"><b>교사</b>${
+      teachers.map(t => `<button type="button" data-t="${esc(t)}">${hl(t)}</button>`).join("")}</div>` : "")
+    + (classes.length ? `<div class="chips" style="margin-bottom:10px"><b>학급</b>${classes.map(k =>
+      `<button type="button" data-cls="${esc(k)}">${esc(k)}반</button>`).join("")}</div>` : "");
+  const grid = entries.length
+    ? ttHTML(entries, { bans:true, noRoom:true })
+    : '<p class="dash">반별시간표에 이 장소로 적힌 수업이 없습니다</p>';
+  const courses = mine.length ? `<h2 class="cap">여기서 하는 선택과목</h2><div class="frame"><table>
+    <thead><tr><th class="c-s">슬롯</th><th>과목</th><th class="c-p">교사</th><th class="c-c num">인원</th></tr></thead>
+    <tbody>${mine.map(c => `<tr class="hit" data-c="${esc(c.id)}">
+      <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td>
+      <td class="mn" data-l="과목">${gLabel(c.grade)} ${hl(c.subject)}</td>
+      <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
+      <td class="c-c num rt-side" data-l="인원">${c.count}</td></tr>`).join("")}</tbody></table></div>` : "";
+  return { n:entries.length + mine.length, html:head + chips + grid + courses };
 }
 
 /* ---- 전체 ---- */
@@ -1398,8 +1401,8 @@ function draw({ keep = false } = {}){
   else if(S.view === "course") r = drawCourse();
   else if(S.view === "klass") r = drawClass();
   else if(S.view === "teacher") r = drawTeacher();
-  else if(S.view === "roster") r = drawRoster();
-  else r = drawFind();
+  else if(S.view === "room") r = drawRoom();
+  else r = drawRoster();
   $("#view").innerHTML = r.html;
   $("#qn").textContent = terms().length ? `${r.n}` : "";
 
@@ -1407,7 +1410,7 @@ function draw({ keep = false } = {}){
 
   if(actO) $(`[data-o="${CSS.escape(actO)}"]`)?.focus({ preventScroll:true });
   else if(actH) $(`[data-h="${CSS.escape(actH)}"]`)?.focus({ preventScroll:true });
-  else if(actId && ["tsel", "csel", "cols", "head"].includes(actId)) $("#" + actId)?.focus({ preventScroll:true });
+  else if(actId && ["tsel", "rsel", "csel", "cols", "head"].includes(actId)) $("#" + actId)?.focus({ preventScroll:true });
 
   document.documentElement.style.setProperty("--top-h", $(".top").offsetHeight + "px");
   if(keep) window.scrollTo({ top, behavior:"instant" });
@@ -1524,7 +1527,7 @@ function fillDetail(){
         <tbody>${s.courses.map(c => `<tr class="hit" data-c="${esc(c.id)}">
           <td class="c-s" data-l="슬롯">${slotTag(c.slot)}</td><td class="mn" data-l="과목">${esc(c.subject)}</td>
           <td class="c-p" data-l="교사">${teacherLinks(c.teacher)}</td>
-          <td class="c-r" data-l="장소">${esc(c.room || "미정")}</td></tr>`).join("")}</tbody></table></div>`
+          <td class="c-r" data-l="장소">${roomLinks(c.room)}</td></tr>`).join("")}</tbody></table></div>`
         : '<p class="dash">신청한 과목이 없습니다</p>'}`;
     return;
   }
@@ -1538,7 +1541,7 @@ function fillDetail(){
   body.innerHTML = `<dl class="duty">
       <dt>학년</dt><dd>${gLabel(c.grade)}</dd>
       <dt>교사</dt><dd>${teacherLinks(c.teacher)}</dd>
-      <dt>장소</dt><dd>${esc(c.room || "미정")}</dd>
+      <dt>장소</dt><dd>${roomLinks(c.room)}</dd>
       <dt>시간</dt><dd>${when.length ? esc(when.join(" · ")) + (c.times[0]?.guess ? " (슬롯시간 추정)" : "") : "찾지 못했습니다"}</dd>
       <dt>인원</dt><dd>${c.count}명</dd></dl>
     <h3>반별 분포</h3><div class="chips">${[...byBan.entries()].sort((a, b) => a[0] - b[0]).map(([b, n]) =>
@@ -1575,7 +1578,7 @@ function paperTT(entries, opts = {}){
     const meta = [
       opts.bans ? (e.bans.length ? e.bans : (e.ban ? [e.ban] : [])).map(b => `${e.grade}-${b}`).join("·") : "",
       e.bans.length && e.ban && !opts.bans ? `분반 ${splitNo(e)}` : "",
-      S.print.teacher ? e.teacher : "", S.print.room && !own ? e.room : ""
+      S.print.teacher ? e.teacher : "", S.print.room && !own && !opts.noRoom ? e.room : ""
     ].filter(Boolean).join(" · ");
     return `<span class="pe"><b>${esc(e.subject)}</b>${meta ? `<i>${esc(meta)}</i>` : ""}</span>`;
   };
@@ -1618,6 +1621,13 @@ function paperHTML(v){
     return `<div class="paper"><h1>${esc(S.teacher)} 주간 시간표</h1>
       <p class="ps">주 ${entries.length}시간</p>
       ${paperTT(entries, { bans:true })}${foot}</div>`;
+  }
+
+  if(v === "room"){
+    const entries = M.lessons.filter(r => r.room === S.room);
+    return `<div class="paper"><h1>${esc(S.room)} 사용 시간표</h1>
+      <p class="ps">주 ${entries.length}시간</p>
+      ${paperTT(entries, { bans:true, noRoom:true })}${foot}</div>`;
   }
 
   const rows = courseRows(S.grade);
@@ -1705,7 +1715,7 @@ function buildPaper(){
 
   const pt = PR.fit.pt, tight = pt < 7.4;
   const tips = [];
-  if(S.print.room) tips.push("장소 끄기");
+  if(S.print.room && PR.view !== "room") tips.push("장소 끄기");
   if(PR.view !== "roster" && S.print.teacher) tips.push("교사 끄기");
   const el = $("#fit");
   el.className = `fit${tight ? " tight" : ""}`;
@@ -1724,18 +1734,19 @@ function scaleView(){
 function printOpts(){
   const out = [];
   if(PR.view !== "roster") out.push(chk("교사", "print", "teacher"));
-  out.push(chk("장소", "print", "room"));
+  if(PR.view !== "room") out.push(chk("장소", "print", "room"));
   if(PR.view === "roster" || PR.view === "course") out.push(chk("인원", "print", "count"));
   return out.join("");
 }
 const printReady = v => v === "klass" ? !!S.ban : v === "teacher" ? !!S.teacher
-  : v === "roster" ? IX.course.has(S.course) : true;
+  : v === "room" ? !!S.room : v === "roster" ? IX.course.has(S.course) : true;
 
 function openPrint(){
   if(!loaded || !VIEWS[S.view].paper) return;
   if(!printReady(S.view)){
     toast(S.view === "roster" ? "인쇄할 강좌를 먼저 고르세요"
-      : S.view === "klass" ? "인쇄할 반을 먼저 고르세요" : "인쇄할 교사를 먼저 고르세요");
+      : S.view === "klass" ? "인쇄할 반을 먼저 고르세요"
+      : S.view === "room" ? "인쇄할 장소를 먼저 고르세요" : "인쇄할 교사를 먼저 고르세요");
     return;
   }
   PR.view = S.view;
@@ -1831,6 +1842,13 @@ function toTeacher(name){
   draw();
   window.scrollTo({ top:0, behavior:"instant" });
 }
+function toRoom(name){
+  if(!IX.rooms.includes(name)) return;
+  $("#ddlg").close();
+  S.room = name; S.view = "room"; S.q = ""; $("#q").value = "";
+  draw();
+  window.scrollTo({ top:0, behavior:"instant" });
+}
 function toSlot(key){
   const [g, slot] = String(key).split("|");
   $("#ddlg").close();
@@ -1856,6 +1874,7 @@ document.addEventListener("click", ev => {
   if(t.dataset.c){ openDetail("course", t.dataset.c); return; }
   if(t.dataset.cls){ toClass(t.dataset.cls); return; }
   if(t.dataset.t){ toTeacher(t.dataset.t); return; }
+  if(t.dataset.rm){ toRoom(t.dataset.rm); return; }
   if(t.dataset.sl){ toSlot(t.dataset.sl); return; }
   if(t.dataset.g){ S.grade = num(t.dataset.g); draw(); return; }
   if(t.dataset.g0 != null){ S.grade0 = num(t.dataset.g0); draw({ keep:true }); return; }
@@ -1918,6 +1937,7 @@ document.addEventListener("change", ev => {
     return;
   }
   if(el.id === "tsel"){ S.teacher = el.value; draw(); return; }
+  if(el.id === "rsel"){ S.room = el.value; draw(); return; }
   if(el.id === "csel"){ S.course = el.value; draw(); return; }
   if(el.id === "head"){ S.head = el.value; heads = []; draw({ keep:true }); return; }
   if(el.id === "cols"){
