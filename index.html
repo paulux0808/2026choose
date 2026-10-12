@@ -492,7 +492,7 @@ kbd{
 
 /* ============ 설정 ============ */
 const CONFIG = Object.freeze({
-  SHEET_ID: "1ZwOdHmsFGbCNTDJtUvLk5ExLxgLCAXyTVglkULv99lQ",
+  SHEET_ID: "14E6B2_Idhly1Dmh33HTf0FYQFMKkxLSC1POzcAxr_vQ",
   SHEETS: [
     { key:"s2",     gid:"0",          name:"2학년 신청",  kind:"student", grade:2 },
     { key:"s3",     gid:"1935968761", name:"3학년 신청",  kind:"student", grade:3 },
@@ -1012,7 +1012,7 @@ let printing = false, printTimer = null;
 
 function saveCache(){
   if(write(CACHE, {
-    at:Date.now(),
+    at:Date.now(), sheetId:CONFIG.SHEET_ID,
     s2:RAW.s2, s3:RAW.s3, lesson:RAW.lesson, time:RAW.time, c2:RAW.c2, c3:RAW.c3,
     src:Object.fromEntries(Object.entries(SRC).map(([k, v]) => [k, { rows:v.rows, at:v.at, flags:v.flags }]))
   })) cachedAt = Date.now();
@@ -1020,6 +1020,8 @@ function saveCache(){
 function loadCache(){
   const c = read(CACHE, null);
   if(!c || !Array.isArray(c.lesson)) return false;
+  /* 다른 시트에서 받은 사본(시트 ID 필드가 없는 옛 사본 포함)은 쓰지 않고 지운다 */
+  if(c.sheetId !== CONFIG.SHEET_ID){ try{ localStorage.removeItem(CACHE); }catch{} return false; }
   try{
     for(const k of Object.keys(RAW)) if(Array.isArray(c[k])) RAW[k] = c[k];
     cachedAt = c.at || 0;
