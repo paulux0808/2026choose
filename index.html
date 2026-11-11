@@ -206,6 +206,7 @@ tfoot td{background:var(--bg-2);font-weight:700;border-top:1px solid var(--line-
   grid-template-rows:auto repeat(var(--p,7),minmax(38px,auto));
   gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;
 }
+.tt-d.is-today{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
 .tt-h,.tt-d{background:var(--bg-2);padding:5px;text-align:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-2)}
 .tt-p{background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:var(--f-xs);font-weight:700;color:var(--ink-3)}
 /* 빈 칸에 음영을 넣으면 수업 조각의 옅은 색과 섞여 오히려 구분이 죽는다. 괘선이 칸을 나눈다. */
@@ -518,6 +519,7 @@ const tone = s => SLOT_TONE.get(String(s || "").trim().charAt(0).toUpperCase()) 
 const SPECIAL = { "자율활동":"--dh:38;--ds:62%", "자습":"--dh:246;--ds:44%" };
 
 const DAYS = ["월","화","수","목","금"];
+const TODAY_NAME = ["일","월","화","수","목","금","토"][new Date().getDay()];
 const DAY_IX = new Map(DAYS.map((d, i) => [d, i]));
 const VIEWS = {
   student:{ label:"학생",   paper:false },
@@ -1086,19 +1088,40 @@ async function reload(){
 
 /* ============ 검색 ============ */
 const terms = () => S.q.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+/* 초성 검색 — 'ㅎㄱㄷ' 으로 '홍길동' 을 찾는다. 글자 수가 그대로라 위치가 어긋나지 않는다 */
+const CHO = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+const toChosung = str => Array.from(String(str), ch => {
+  const code = ch.charCodeAt(0) - 0xAC00;
+  return code >= 0 && code <= 11171 ? CHO[Math.floor(code / 588)] : ch;
+}).join("");
+const hasChosung = s => /[ㄱ-ㅎ]/.test(s);
 function hit(...parts){
   const t = terms();
   if(!t.length) return true;
   const hay = parts.join(" ").toLocaleLowerCase();
-  return t.every(x => hay.includes(x));
+  const cho = t.some(hasChosung) ? toChosung(hay) : "";
+  return t.every(x => hay.includes(x) || (hasChosung(x) && cho.includes(x)));
 }
 function hl(v){
   const raw = String(v ?? ""), t = uniq(terms());
   if(!t.length) return esc(raw);
-  const re = new RegExp(t.sort((a, b) => b.length - a.length)
-    .map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "gi");
+  const low = raw.toLocaleLowerCase();
+  if(low.length !== raw.length) return esc(raw);
+  const cho = toChosung(low), ranges = [];
+  for(const x of t)
+    for(const [hay, ok] of [[low, true], [cho, hasChosung(x)]]){
+      if(!ok) continue;
+      for(let i = hay.indexOf(x); i >= 0; i = hay.indexOf(x, i + 1)) ranges.push([i, i + x.length]);
+    }
+  if(!ranges.length) return esc(raw);
+  ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const merged = [ranges[0]];
+  for(const r of ranges.slice(1)){
+    const last = merged[merged.length - 1];
+    if(r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else merged.push([...r]);
+  }
   let out = "", i = 0;
-  for(const m of raw.matchAll(re)){ out += esc(raw.slice(i, m.index)) + `<mark>${esc(m[0])}</mark>`; i = m.index + m[0].length; }
+  for(const [a, b] of merged){ out += esc(raw.slice(i, a)) + `<mark>${esc(raw.slice(a, b))}</mark>`; i = b; }
   return out + esc(raw.slice(i));
 }
 
@@ -1171,6 +1194,8 @@ function drawTools(){
       opt("교사", "show", "teacher")}${v === "room" ? "" : opt("장소", "show", "room")}</div>`);
 
   out.push('<span class="grow"></span>');
+  if(["student", "course", "roster"].includes(v))
+    out.push(`<button class="btn btn-q" data-a="csv" type="button"${loaded ? "" : " disabled"} title="지금 보이는 목록을 엑셀용 CSV 로 저장">CSV</button>`);
   if(VIEWS[v].paper) out.push(`<button class="btn" data-a="open-print" type="button"${loaded ? "" : " disabled"}>인쇄</button>`);
   out.push('<button class="btn btn-q btn-s" data-a="reload" type="button">새로고침</button>');
 
@@ -1198,7 +1223,7 @@ function ttHTML(entries, opts = {}){
         mergeable(list) ? mergedCell(list) : list.map(e => ttCell(e, opts)).join("")}</div>`;
     }).join("");
     /* 좁은 화면에서는 빈 칸이 접히므로, 아무것도 없는 요일은 그렇다고 적어 준다 */
-    return `<div class="tt-d"${n ? "" : ' data-none="수업 없음"'}>${d}</div>${cells}`;
+    return `<div class="tt-d${d === TODAY_NAME ? " is-today" : ""}"${n ? "" : ' data-none="수업 없음"'}>${d}</div>${cells}`;
   }).join("");
   return `<div class="tt" style="--p:${maxP}">${head}${cols}</div>`;
 }
@@ -1845,6 +1870,49 @@ function openSettings(){
   if(!$("#sdlg").open) $("#sdlg").showModal();
 }
 
+/* ============ CSV 내보내기 ============ */
+/* 시트에 쓰는 것이 아니라 이 기기로 내려받는 파일이다. 엑셀에서 한글이 깨지지 않게 BOM 을 붙인다. */
+function downloadCSV(name, rows){
+  const csv = "\uFEFF" + rows.map(r => r.map(v => {
+    const t = String(v ?? "").replace(/"/g, '""');
+    return /[",\n\r]/.test(t) ? `"${t}"` : t;
+  }).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`${name} 을 저장했습니다`);
+}
+
+function exportCSV(){
+  if(S.view === "student"){
+    const rows = studentRows();
+    if(!rows.length) return toast("내보낼 학생이 없습니다");
+    const n = Math.max(1, ...rows.map(s => s.courses.length));
+    const head = ["학번", "이름", "학년", "반", "과목수"];
+    for(let i = 1; i <= n; i++) head.push(`슬롯${i}`, `과목${i}`, `교사${i}`, `장소${i}`);
+    downloadCSV(`선택과목_학생_${S.grade0 ? S.grade0 + "학년" : "전체"}.csv`, [head, ...rows.map(s => {
+      const r = [s.id, s.name, s.grade, s.ban || "", s.courses.length];
+      for(let i = 0; i < n; i++){ const c = s.courses[i]; r.push(c?.slot || "", c?.subject || "", c?.teacher || "", c?.room || ""); }
+      return r;
+    })]);
+  }else if(S.view === "course"){
+    const rows = courseRows(S.grade);
+    if(!rows.length) return toast("내보낼 강좌가 없습니다");
+    downloadCSV(`선택과목_${S.grade}학년_강좌.csv`, [["학년", "슬롯", "과목", "교사", "장소", "신청인원", "강좌표 기재"],
+      ...rows.map(c => [c.grade, c.slot, c.subject, c.teacher, c.room, c.count, c.said ?? ""])]);
+  }else if(S.view === "roster"){
+    const c = IX.course.get(S.course);
+    if(!c) return toast("강좌를 먼저 고르세요");
+    const hd = rosterHeads();
+    downloadCSV(`명렬표_${c.grade}학년_${c.slot}_${c.subject}.csv`, [["연번", "학번", "이름", "학년", "반", ...hd],
+      ...c.roster.map((s, i) => [i + 1, s.id, s.name, s.grade, s.ban || "", ...hd.map(() => "")])]);
+  }
+}
+
 /* ============ 옮겨 가기 ============ */
 function toClass(key){
   const [g, b] = String(key).split("-").map(num);
@@ -1917,6 +1985,7 @@ document.addEventListener("click", ev => {
       break;
     case "close": t.closest("dialog")?.close(); break;
     case "open-print": openPrint(); break;
+    case "csv": exportCSV(); break;
     case "print": doPrint(); break;
     case "d-prev": moveDetail(-1); break;
     case "d-next": moveDetail(1); break;
