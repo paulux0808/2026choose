@@ -794,6 +794,58 @@ td {
 .tt-c.tt-x {
   background: var(--bg-surface);
 }
+.tt-c.tt-off {
+  background: repeating-linear-gradient(135deg, var(--bg-subtle) 0 7px, var(--bg-muted) 7px 8px);
+}
+.tt-c.tt-gap { align-items: center; }
+.tt-c.tt-gap span {
+  font-size: var(--f-2xs);
+  font-weight: 700;
+  color: var(--warn-ink);
+  background: var(--warn-soft);
+  border: 1px dashed var(--warn-border);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+
+/* 빈 시간 화면의 칸 */
+.fc {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  text-align: left;
+  font-size: var(--f-2xs);
+  color: var(--ink-3);
+  transition: background 0.12s, border-color 0.12s;
+}
+.fc:hover { background: var(--bg-hover); border-color: var(--line-2); }
+.fc b { font-size: var(--f-xs); font-weight: 800; color: var(--ink-2); }
+.fc.is-ok { background: var(--ok-soft); }
+.fc.is-ok b { color: var(--ok-ink); }
+.fc.is-no b { color: var(--ink-4); font-weight: 600; }
+.fc.is-sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+.fc.is-sel b { color: var(--accent-ink); }
+.who {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: var(--f-sm);
+  margin-bottom: 12px;
+}
+.who dt { font-weight: 700; }
+.who dd.ok { color: var(--ok-ink); font-weight: 700; }
+.who dd.no { color: var(--ink-2); }
+.chip small { font-size: var(--f-2xs); font-weight: 600; color: var(--ink-4); }
+.chip .x { color: var(--ink-4); font-weight: 800; }
+
 .tt-c.has-clash {
   background: var(--warn-soft);
 }
@@ -1335,6 +1387,7 @@ kbd {
   /* 모바일 시간표: 요일별 깔끔한 아젠다 뷰 */
   .tt { display: block; background: var(--bg-surface); }
   .tt-h, .tt-p, .tt-c.tt-x { display: none; }
+  .tt-c.tt-x.tt-gap { display: grid; }
   .tt-d {
     justify-content: flex-start;
     padding: 8px 12px;
@@ -1599,7 +1652,8 @@ const VIEWS = {
   klass:  { label:"학급",   paper:true  },
   teacher:{ label:"교사",   paper:true  },
   room:   { label:"장소",   paper:true  },
-  roster: { label:"명렬표", paper:true  }
+  roster: { label:"명렬표", paper:true  },
+  free:   { label:"빈 시간", paper:false }
 };
 const VK = Object.keys(VIEWS);
 const HEADS = {
@@ -1716,6 +1770,7 @@ const S = {
   grade:2,
   cg:2, ban:0,
   teacher:"", room:"", course:"",
+  free:"", pick:[],              /* 빈 시간 — 고른 칸('월|3'), 함께 볼 교사들 */
   cols:10, head:"date",
   show:{ teacher:true, room:true },
   print:{ teacher:true, room:true, count:true }
@@ -1754,7 +1809,8 @@ function applyPrefs(){
 /* ============ 구글 시트 데이터 엔진 ============ */
 const RAW = { s2:[], s3:[], s3j:[], lesson:[], time:[], c2:[], c3:[] };
 const M = { students:[], courses:[], lessons:[], times:[] };
-const IX = { student:new Map(), course:new Map(), byKey:new Map(), teachers:[], rooms:[], classes:new Map() };
+const IX = { student:new Map(), course:new Map(), byKey:new Map(), teachers:[], rooms:[], classes:new Map(),
+             periods:new Map(), busyT:new Map(), busyR:new Map() };
 const SRC = Object.fromEntries(CONFIG.SHEETS.map(x =>
   [x.key, { name:x.name, gid:x.gid, rows:0, at:0, error:"", flags:[] }]));
 const CROSS = [];
@@ -2032,7 +2088,33 @@ function build(){
   if(!S.room && IX.rooms.length) S.room = IX.rooms[0];
   if(!S.course && M.courses.length) S.course = M.courses[0].id;
 
+  /* 누가·어디가 언제 차 있는지. '빈 시간' 화면과 시간표의 빗금이 이걸 본다. */
+  IX.periods = new Map(); IX.busyT = new Map(); IX.busyR = new Map();
+  const mark = (bag, who, k, r) => {
+    if(!bag.has(who)) bag.set(who, new Map());
+    const m = bag.get(who);
+    if(!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  };
+  for(const r of M.lessons){
+    const k = `${r.day}|${r.period}`;
+    for(const t of teachersOf(r.teacher).filter(realTeacher)) mark(IX.busyT, t, k, r);
+    if(r.room) mark(IX.busyR, r.room, k, r);
+    if(/^반\//.test(r.room) && homeRoom(r)) mark(IX.busyR, homeRoom(r), k, r);
+  }
+
   check();
+}
+
+/* 학교(또는 한 학년)에 수업이 하나라도 있는 요일·교시. 여기에 없는 칸은 빈 것이 아니라 원래 수업이 없는 시간이다. */
+function periodSet(grade = 0){
+  if(!IX.periods.has(grade)){
+    const set = new Set();
+    for(const r of M.lessons) if(!grade || r.grade === grade) set.add(`${r.day}|${r.period}`);
+    for(const t of M.times) if(!grade || t.grade === grade) set.add(`${t.day}|${t.period}`);
+    IX.periods.set(grade, set);
+  }
+  return IX.periods.get(grade);
 }
 
 /* 장소 칸에 '반/국어과교실' 처럼 적힌 수업은 그 반 교실에서 할 수도 있다는 뜻이다.
@@ -2085,6 +2167,13 @@ function check(){
   for(const s of M.students){
     const have = new Set(Object.values(s.subjects).map(v => nSlot(v).charAt(0)));
     const miss = [...(offered.get(s.grade) || [])].filter(x => !have.has(x)).sort();
+    const bySlot = new Map();
+    for(const [subject, slot] of Object.entries(s.subjects)){
+      const b = nSlot(slot).charAt(0);
+      bySlot.set(b, [...(bySlot.get(b) || []), subject]);
+    }
+    for(const [b, list] of bySlot)
+      if(list.length > 1) add(`${s.id} ${s.name} — 슬롯 ${b} 에 두 과목을 신청했습니다 (${list.join(", ")})`);
     if(miss.length) add(`${s.id} ${s.name} — 신청 시트에 슬롯 ${miss.join(", ")} 선택이 없어 그 시간이 비어 보입니다`);
   }
 
@@ -2344,12 +2433,25 @@ function drawTools(){
     out.push(`<button class="btn btn-sm btn-primary" data-a="open-print" type="button"${loaded ? "" : " disabled"}>출석부 인쇄</button>`);
   }
 
+  else if(v === "free"){
+    const rest = IX.teachers.filter(t => !S.pick.includes(t));
+    out.push(`<select class="fld" id="psel" style="height:28px;font-size:var(--f-xs)" aria-label="함께 볼 교사 고르기">
+      <option value="">+ 함께 비는 시간을 볼 교사</option>${rest.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select>`);
+    if(S.pick.length){
+      out.push(`<div class="chips">${S.pick.map(t =>
+        `<button type="button" class="chip" data-unpick="${esc(t)}" title="빼기">${esc(t)} <span class="x">✕</span></button>`).join("")}</div>`);
+      out.push('<button class="btn btn-sm btn-ghost" data-a="pick-clear" type="button">모두 빼기</button>');
+    }
+    out.push('<span class="grow"></span>');
+  }
+
   $("#tools").innerHTML = out.join("");
 }
 
 /* ============ 주간 시간표 렌더러 ============ */
 function ttHTML(entries, opts = {}){
   const maxP = Math.min(9, Math.max(7, ...entries.map(e => e.period || 0)));
+  const on = periodSet(opts.grade || 0);
   const grid = new Map();
   for(const e of entries){
     const k = `${e.day}|${e.period}`;
@@ -2358,13 +2460,20 @@ function ttHTML(entries, opts = {}){
   }
   const head = `<div class="tt-h">교시</div>`
     + Array.from({ length:maxP }, (_, i) => `<div class="tt-p">${i + 1}</div>`).join("");
+  /* 빈 칸은 둘로 나뉜다 — 원래 수업이 없는 시간(빗금)과, 있어야 하는데 빈 시간(opts.gaps 일 때 밝힌다) */
+  const blank = (d, p) => {
+    const off = on.size > 0 && !on.has(`${d}|${p}`);
+    return off ? `<div class="tt-c tt-x tt-off" data-p="${p}교시" title="수업이 없는 시간"></div>`
+      : opts.gaps ? `<div class="tt-c tt-x tt-gap" data-p="${p}교시"><span>빈 시간</span></div>`
+      : `<div class="tt-c tt-x" data-p="${p}교시"></div>`;
+  };
 
   const cols = DAYS.map(d => {
     let n = 0;
     const isToday = d === TODAY_NAME;
     const cells = Array.from({ length:maxP }, (_, i) => {
       const list = grid.get(`${d}|${i + 1}`) || [];
-      if(!list.length) return `<div class="tt-c tt-x" data-p="${i + 1}교시"></div>`;
+      if(!list.length) return blank(d, i + 1);
       n++;
       const merged = mergeable(list);
       const distinctSubj = uniq(list.map(x => nSubj(x.subject))).length > 1;
@@ -2382,7 +2491,7 @@ function ttMeta(e, opts){
   const bits = [];
   if(opts.bans){
     const bans = e.bans.length ? e.bans : (e.ban ? [e.ban] : []);
-    if(bans.length) bits.push(`<button type="button" data-cls="${e.grade}-${bans[0]}">${e.grade}-${bans.join("·")}반</button>`);
+    if(bans.length) bits.push(`<button type="button" data-cls="${e.grade}-${bans[0]}">${bans.length > 1 ? `${e.grade}학년 ${bans.join("·")}반` : `${e.grade}-${bans[0]}반`}</button>`);
   }
   if(e.bans.length && e.ban && !opts.bans) bits.push(`분반 ${splitNo(e)}`);
   if(S.show.teacher && e.teacher && !opts.noTeacher) bits.push(teacherLinks(e.teacher));
@@ -2520,7 +2629,7 @@ function drawClass(){
     <div class="metric-card">주간 편성 <b>${entries.length}시간</b></div>
   </div>`;
 
-  const tt = entries.length ? ttHTML(entries) : emptyBox("이 학급의 시간표 자료가 없습니다");
+  const tt = entries.length ? ttHTML(entries, { grade:g, gaps:true }) : emptyBox("이 학급의 시간표 자료가 없습니다");
   const roster = list.length ? `<div class="card"><table>
     <thead><tr><th class="c-id">학번</th><th class="c-n">이름</th><th>신청 선택과목</th><th class="c-c num">과목수</th></tr></thead>
     <tbody>${list.map(s => `<tr class="row-hit" data-u="${esc(s.id)}">
@@ -2685,6 +2794,74 @@ function drawRoster(){
   return { n:list.length, html:`<div class="split">${dirHtml}<div style="min-width:0">${mainHtml}</div></div>` };
 }
 
+/* 7. 빈 시간 — 요일·교시마다 수업이 없는 교사와 비어 있는 교실.
+      교사를 여럿 고르면 그 사람들이 함께 비는 시간을 짚어 준다 (회의·대강 잡기). */
+function drawFree(){
+  const on = periodSet(0);
+  if(!on.size) return { n:0, html:emptyBox("시간표 자료가 없습니다") };
+  const maxP = Math.max(...[...on].map(k => +k.split("|")[1]));
+  S.pick = S.pick.filter(t => IX.teachers.includes(t));
+  if(S.free && !on.has(S.free)) S.free = "";
+  const picks = S.pick;
+  const rooms = IX.rooms.filter(r => !/^반\//.test(r));
+  const freeT = k => IX.teachers.filter(t => !IX.busyT.get(t)?.has(k));
+  const freeR = k => rooms.filter(r => !IX.busyR.get(r)?.has(k));
+  const busyOf = k => picks.filter(t => IX.busyT.get(t)?.has(k));
+  const what = r => `${r.subject}${r.slot ? ` [${r.slot}]` : r.ban ? ` ${r.grade}-${r.ban}` : ""}`;
+
+  const head = `<div class="tt-h">교시</div>`
+    + Array.from({ length:maxP }, (_, i) => `<div class="tt-p">${i + 1}</div>`).join("");
+  let together = 0;
+  const cols = DAYS.map(d => `<div class="tt-d${d === TODAY_NAME ? " is-today" : ""}">${d}</div>`
+    + Array.from({ length:maxP }, (_, i) => {
+      const k = `${d}|${i + 1}`;
+      if(!on.has(k)) return `<div class="tt-c tt-x tt-off" data-p="${i + 1}교시" title="수업이 없는 시간"></div>`;
+      const busy = busyOf(k), ok = picks.length > 0 && !busy.length;
+      if(ok) together++;
+      return `<div class="tt-c" data-p="${i + 1}교시"><button type="button" data-fc="${k}"
+        class="fc${S.free === k ? " is-sel" : ""}${ok ? " is-ok" : picks.length ? " is-no" : ""}" aria-pressed="${S.free === k}">
+        ${picks.length ? `<b>${ok ? "모두 가능" : `${busy.length}명 수업`}</b>` : `<b>교사 ${freeT(k).length}명</b>`}
+        <span>${picks.length ? `빈 교사 ${freeT(k).length} · ` : ""}빈 교실 ${freeR(k).length}</span>
+      </button></div>`;
+    }).join("")).join("");
+
+  const metrics = `<div class="metrics">
+    <div class="metric-card">교사 <b>${IX.teachers.length}명</b></div>
+    <div class="metric-card">교실 <b>${rooms.length}곳</b></div>
+    <div class="metric-card">주간 수업 시간 <b>${on.size}칸</b></div>
+    ${picks.length ? `<div class="metric-card">${esc(picks.join(" · "))} 함께 비는 시간 <b>${together}칸</b></div>` : ""}
+  </div>`;
+
+  let detail = emptyBox("칸을 누르면 그 시간에 수업이 없는 교사와 비어 있는 교실이 나옵니다",
+    "위에서 교사를 고르면 그 교사들이 함께 비는 시간이 초록으로 표시됩니다.");
+  let n = 0;
+  if(S.free){
+    const [d, p] = S.free.split("|");
+    /* 그날 수업이 적은 교사부터 — 대강을 부탁하기 쉬운 순서 */
+    const load = t => [...(IX.busyT.get(t)?.keys() || [])].filter(k => k.startsWith(d + "|")).length;
+    const ft = freeT(S.free).filter(t => hit(t)).sort((a, b) => load(a) - load(b) || a.localeCompare(b, "ko"));
+    const fr = freeR(S.free).filter(r => hit(r));
+    n = ft.length + fr.length;
+    detail = `
+      <div class="sec-head"><h2 class="sec-title">${d}요일 ${p}교시</h2>
+        <span class="sec-sub">교사·교실 이름을 누르면 그 시간표로 갑니다</span></div>
+      ${picks.length ? `<dl class="who">${picks.map(t => {
+        const rows = IX.busyT.get(t)?.get(S.free) || [];
+        return `<dt><button type="button" class="inline-link" data-t="${esc(t)}">${esc(t)}</button></dt>
+          <dd class="${rows.length ? "no" : "ok"}">${rows.length ? esc(uniq(rows.map(what)).join(", ")) + " 수업" : "수업 없음"}</dd>`;
+      }).join("")}</dl>` : ""}
+      <div class="chips" style="margin-bottom:10px"><b>수업 없는 교사 ${ft.length}명</b>${ft.map(t =>
+        `<button type="button" class="chip" data-t="${esc(t)}">${hl(t)} <small>그날 ${load(t)}시간</small></button>`).join("")
+        || '<span class="muted">없음</span>'}</div>
+      <div class="chips"><b>비어 있는 교실 ${fr.length}곳</b>${fr.map(r =>
+        `<button type="button" class="chip" data-rm="${esc(r)}">${hl(r)}</button>`).join("")
+        || '<span class="muted">없음</span>'}</div>`;
+  }
+
+  return { n, html:`${metrics}<div class="tt" style="--p:${maxP}">${head}${cols}</div>
+    <div style="margin-top:16px">${detail}</div>` };
+}
+
 /* ============ 상태 배지 & 점검 센터 업데이트 ============ */
 function updateHealthBadge(){
   const btn = $("#healthBtn"), txt = $("#healthText");
@@ -2767,6 +2944,7 @@ function draw({ keep = false } = {}){
   else if(S.view === "klass") r = drawClass();
   else if(S.view === "teacher") r = drawTeacher();
   else if(S.view === "room") r = drawRoom();
+  else if(S.view === "free") r = drawFree();
   else r = drawRoster();
 
   $("#view").innerHTML = r.html;
@@ -2777,6 +2955,11 @@ function draw({ keep = false } = {}){
   $("#qHint").hidden = hasQ;
 
   savePrefs();
+  /* 주소에 지금 화면을 적는다. 화면을 옮길 때는 기록을 쌓아 '뒤로' 가 듣게 하고, 같은 화면의 잔 변화는 덮어쓴다. */
+  const h = hashOf();
+  if(location.hash !== h){
+    try{ history[keep || !location.hash ? "replaceState" : "pushState"](null, "", h); }catch{}
+  }
 
   /* 포커스 및 커서 복원 */
   if(actO) $(`[data-o="${CSS.escape(actO)}"]`)?.focus({ preventScroll:true });
@@ -2803,6 +2986,46 @@ function toast(t){
   clearTimeout(toast.t);
   toast.t = setTimeout(() => { el.hidden = true; }, 3200);
 }
+
+/* ============ 주소 연동 ============ */
+/* #/teacher/김은실 · #/klass/2-3 · #/room/음악실 · #/roster/<강좌> · #/free/월-3 */
+function hashOf(){
+  const e = encodeURIComponent;
+  switch(S.view){
+    case "student": return `#/student${S.grade0 ? "/" + S.grade0 : ""}`;
+    case "course":  return `#/course/${S.grade}`;
+    case "klass":   return `#/klass/${S.cg}-${S.ban}`;
+    case "teacher": return `#/teacher/${e(S.teacher)}`;
+    case "room":    return `#/room/${e(S.room)}`;
+    case "roster":  return `#/roster/${e(S.course)}`;
+    case "free":    return `#/free${S.free ? "/" + e(S.free.replace("|", "-")) : ""}`;
+  }
+  return "";
+}
+function applyHash(){
+  const m = location.hash.match(/^#\/([a-z]+)(?:\/(.*))?$/);
+  if(!m || !Object.hasOwn(VIEWS, m[1])) return false;
+  let arg = "";
+  try{ arg = decodeURIComponent(m[2] || ""); }catch{}
+  S.view = m[1];
+  if(m[1] === "student") S.grade0 = [2, 3].includes(+arg) ? +arg : 0;
+  else if(m[1] === "course"){ if([2, 3].includes(+arg)) S.grade = +arg; }
+  else if(m[1] === "klass"){
+    const [g, b] = arg.split("-").map(num);
+    if([1, 2, 3].includes(g)){ S.cg = g; S.ban = b || 0; }
+  }
+  else if(m[1] === "teacher"){ if(arg) S.teacher = arg; }
+  else if(m[1] === "room"){ if(arg) S.room = arg; }
+  else if(m[1] === "roster"){ if(arg) S.course = arg; }
+  else if(m[1] === "free") S.free = /^[월화수목금]-\d$/.test(arg) ? arg.replace("-", "|") : "";
+  return true;
+}
+addEventListener("popstate", () => {
+  if(!applyHash()) return;
+  $$("dialog[open]").forEach(d => d.close());
+  S.q = ""; S.dirQ = ""; $("#q").value = "";
+  draw({ keep:true });
+});
 
 function go(v){
   if(!Object.hasOwn(VIEWS, v) || v === S.view) return;
@@ -2909,7 +3132,7 @@ function fillDetail(){
         <div class="meta-item"><dt>주간 총 시수</dt><dd>${entries.length}시간</dd></div>
       </dl>
       <h3>개인별 통합 주간 시간표</h3>
-      ${entries.length ? ttHTML(entries) : '<p class="muted">시간표 자료가 없습니다</p>'}
+      ${entries.length ? ttHTML(entries, { grade:s.grade, gaps:true }) : '<p class="muted">시간표 자료가 없습니다</p>'}
       <h3>수강 신청 선택과목 목록</h3>
       ${s.courses.length ? `<div class="card"><table class="nowrap-cells">
         <thead><tr><th class="c-s">슬롯</th><th>과목명</th><th class="c-p">담당 교사</th><th class="c-r">장소</th></tr></thead>
@@ -3317,7 +3540,7 @@ function openSettings(){
         `<button type="button" data-fs="${v}" aria-pressed="${S.fs === v}">${l}</button>`).join("")}</div></div>
     <h3>키보드 단축키</h3>
     <div class="keys-grid">
-      <div><kbd>1</kbd>~<kbd>6</kbd><span>6개 화면 전환</span></div>
+      <div><kbd>1</kbd>~<kbd>7</kbd><span>7개 화면 전환</span></div>
       <div><kbd>/</kbd><span>현재 화면 검색</span></div>
       <div><kbd>Ctrl</kbd>+<kbd>K</kbd><span>통합 빠른 이동</span></div>
       <div><kbd>←</kbd><kbd>→</kbd><span>학년·반 / 상세 이동</span></div>
@@ -3407,6 +3630,8 @@ document.addEventListener("click", ev => {
   if(t.dataset.t){ toTeacher(t.dataset.t); return; }
   if(t.dataset.rm){ toRoom(t.dataset.rm); return; }
   if(t.dataset.sl){ toSlot(t.dataset.sl); return; }
+  if(t.dataset.fc){ S.free = S.free === t.dataset.fc ? "" : t.dataset.fc; draw({ keep:true }); return; }
+  if(t.dataset.unpick){ S.pick = S.pick.filter(x => x !== t.dataset.unpick); draw({ keep:true }); return; }
   if(t.dataset.g){ S.grade = num(t.dataset.g); draw(); return; }
   if(t.dataset.g0 != null){ S.grade0 = num(t.dataset.g0); draw({ keep:true }); return; }
   if(t.dataset.cg){
@@ -3441,6 +3666,7 @@ document.addEventListener("click", ev => {
     case "gap-x": gapShut = true; $("#gap").hidden = true; break;
     case "close": t.closest("dialog")?.close(); break;
     case "open-print": openPrint(); break;
+    case "pick-clear": S.pick = []; draw({ keep:true }); break;
     case "print": doPrint(); break;
     case "csv-students": exportStudentsCSV(); break;
     case "csv-courses": exportCoursesCSV(); break;
@@ -3484,6 +3710,7 @@ document.addEventListener("change", ev => {
     }
     return;
   }
+  if(el.id === "psel"){ if(el.value && !S.pick.includes(el.value)) S.pick.push(el.value); draw({ keep:true }); return; }
   if(el.id === "tsel"){ S.teacher = el.value; draw(); return; }
   if(el.id === "rsel"){ S.room = el.value; draw(); return; }
   if(el.id === "csel"){ S.course = el.value; draw(); return; }
@@ -3643,6 +3870,7 @@ setInterval(() => { if(!document.hidden && !printing) reload(); }, CONFIG.POLL_M
 
 /* ============ 앱 부트스트랩 ============ */
 loadPrefs();
+applyHash();
 applyPrefs();
 loadCache();
 loading = true;
