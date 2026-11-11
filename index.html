@@ -2090,7 +2090,8 @@ function check(){
     }
   };
   clash(r => teachersOf(r.teacher).filter(realTeacher), "교사 수업");
-  clash(r => r.room && !/^\d+학년 \d+반$/.test(r.room) ? [r.room] : [], "장소 사용");
+  /* 반 교실도 센다. 한 교실에서 같은 시간에 서로 다른 과목이 열릴 수는 없다 */
+  clash(r => r.room ? [r.room] : [], "장소 사용");
 }
 
 /* ============ 로컬 캐시 & 비동기 동기화 ============ */
