@@ -2067,6 +2067,15 @@ function check(){
     if(!c.times.length) add(`${name(c)} — 배정된 수업 교시를 찾지 못했습니다`);
   }
 
+  /* 학생이 한 슬롯을 비워 두면 그 시간이 시간표에서 통째로 빈다. 학년이 여는 슬롯과 대 본다. */
+  const offered = new Map();
+  for(const c of M.courses) (offered.get(c.grade) || offered.set(c.grade, new Set()).get(c.grade)).add(c.slot.charAt(0));
+  for(const s of M.students){
+    const have = new Set(Object.values(s.subjects).map(v => nSlot(v).charAt(0)));
+    const miss = [...(offered.get(s.grade) || [])].filter(x => !have.has(x)).sort();
+    if(miss.length) add(`${s.id} ${s.name} — 신청 시트에 슬롯 ${miss.join(", ")} 선택이 없어 그 시간이 비어 보입니다`);
+  }
+
   const slots = new Set(M.times.map(t => `${t.grade} ${t.slot}`));
   const said = new Set();
   for(const c of M.courses){
@@ -3307,6 +3316,11 @@ function openSettings(){
     <h3>슬롯 색상 범례</h3>
     <div class="chips">${uniq(M.courses.map(c => c.slot)).sort().map(s =>
       `<span class="chip" style="${tone(s)}"><i class="cm"></i>${esc(s)}</span>`).join("") || '<span class="muted">데이터 없음</span>'}</div>
+    <h3>다른 판</h3>
+    <p style="font-size:var(--f-xs);color:var(--ink-3);line-height:1.6">
+      같은 시트를 읽는 이전의 가벼운 판입니다. 설정은 서로 공유됩니다.
+      <a href="archive/index-v4-minimal.html">가벼운 판 열기</a>
+    </p>
     <h3>동작 안내</h3>
     <p style="font-size:var(--f-xs);color:var(--ink-3);line-height:1.6">
       이 워크스페이스는 연결된 6개의 구글 스프레드시트를 실시간 읽기 전용으로 조회합니다.

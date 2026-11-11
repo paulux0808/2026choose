@@ -1863,6 +1863,9 @@ function openSettings(){
     <h3>슬롯 색</h3>
     <div class="chips">${uniq(M.courses.map(c => c.slot)).sort().map(s =>
       `<span style="${tone(s)}"><i class="cm"></i>${esc(s)}</span>`).join("") || "<span>—</span>"}</div>
+    <h3>다른 판</h3>
+    <p style="font-size:var(--f-sm);color:var(--ink-2)">같은 시트를 읽는 새 판입니다(서랍·빠른 이동·CSV).
+      설정은 서로 공유됩니다. <a href="../index.html">새 판 열기</a></p>
     <h3>이 앱이 하는 일</h3>
     <p style="font-size:var(--f-sm);color:var(--ink-2)">구글 시트 6개를 읽어 보여 줍니다.
       시트에 쓰지 않으므로, 자료를 고치려면 시트를 고치고 새로고침하세요.
