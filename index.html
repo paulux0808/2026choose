@@ -650,6 +650,8 @@ main {
   border-radius: var(--r-md);
   box-shadow: var(--shadow-xs);
   overflow: hidden;
+  /* clip 은 스크롤 상자를 만들지 않아, 안쪽 표 머리줄(sticky)이 화면을 기준으로 붙는다 */
+  overflow: clip;
 }
 .two-col {
   display: grid;
